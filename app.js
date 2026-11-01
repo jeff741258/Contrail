@@ -233,7 +233,7 @@ function renderRecords(list,km){
     cell("Most-flown route",tr[0],`${tr[1]} ${tr[1]===1?"time":"times"}`)+
     cell("Home base",tp[0],`${esc(AP[tp[0]].city)} · ${tp[1]} visits`)+
     cell("Top airline",tl?esc(AL[tl[0]]||tl[0]):"—",tl?`${tl[1]} ${tl[1]===1?"flight":"flights"}`:"No flight numbers yet")+
-    cell("To the Moon",((km/384400)*100).toFixed(1)+"%",`of the way, at ${fmtDist(384400)} ${unit}`)+
+    `<a class="rec recbtn" href="#space"><span class="label">To the Moon</span><span class="big">${km>=384400?(km/384400).toFixed(2)+"×":((km/384400)*100).toFixed(1)+"%"}</span><span class="sub">${km>=384400?"there and beyond":"of the way"} · <span class="go">See it in the solar system ›</span></span></a>`+
     (()=>{const ac={};list.forEach(f=>{if(f.ac)ac[f.ac]=(ac[f.ac]||0)+1;});const t=top(ac),n=Object.keys(ac).length;
       return cell("Top aircraft",t?esc(t[0]):"—",t?`${t[1]} ${t[1]===1?"flight":"flights"}`:"Add aircraft in the flight log")+
         cell("Aircraft types",String(n),n?`on ${Object.values(ac).reduce((a,b)=>a+b,0)} of ${list.length} flights`:"None recorded yet");})();
@@ -753,7 +753,10 @@ function removeFlights(ids){
 }
 window.ContrailApp={getDoc,setDoc,keyOf,parseEmails,reviewCandidates,dropNumberless,addImported,removeFlights,
   photoIds:()=>photos.map(p=>p.id),addPhotoMeta,removePhotoMeta,refreshLog,flightLabel,wipeLocal,wipeSeen,
-  counts:()=>({flights:real().length,photos:photos.length}),findAircraft};
+  counts:()=>({flights:real().length,photos:photos.length}),findAircraft,
+  // Total distance flown (real flights, or the examples while the log is empty) for the Space page.
+  totalKm:()=>{const l=real().length?real():flights;return l.reduce((s,f)=>s+distKm(f.from,f.to),0);},
+  fmtDist:(km,dec)=>fmtDist(km,dec),unit:()=>unit,isExample:()=>!real().length};
 
 load();render();
 })();

@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="styles.css?v=20261031l">
+<link rel="stylesheet" href="styles.css?v=20261031m">
 </head>
 <body>
 <div class="shell">
@@ -202,6 +202,22 @@
         </div>
       </section>
     </div>
+
+    <div class="view" data-view="space" hidden>
+      <section class="space" id="space" aria-labelledby="spTitle">
+        <a class="sp-back" href="#overview">‹ Overview</a>
+        <div class="sp-head">
+          <span class="label">Total distance flown</span>
+          <h2 id="spTitle"><span id="spTotal"></span></h2>
+          <p id="spLead"></p>
+        </div>
+        <div class="sp-grid">
+          <div class="sp-ladder" id="spLadder" role="img" aria-label="Your distance on a scale from Earth to Neptune"></div>
+          <ol class="sp-list" id="spList"></ol>
+        </div>
+        <p class="sp-foot">The scale grows ten times with each step up, so the space station and Neptune fit on one screen. Planets are measured at their closest to Earth.</p>
+      </section>
+    </div>
   </main>
 
   <footer><span id="footStore">Contrail keeps your log in this browser and, once you sign in, in your own cloud account.</span> Distances are great-circle, airport to airport; hours aloft are estimated at 800 km/h plus 30 minutes per flight. The parser knows about 230 airports and 80 airlines. Coastlines from Natural Earth.</footer>
@@ -214,23 +230,24 @@
   </nav>
 </div>
 
-<script src="land.js?v=20261031l"></script>
-<script src="app.js?v=20261031l"></script>
-<script src="config.js?v=20261031l"></script>
-<script src="common.js?v=20261031l"></script>
-<script src="msauth.js?v=20261031l"></script>
-<script src="google.js?v=20261031l"></script>
-<script src="microsoft.js?v=20261031l"></script>
-<script src="apple.js?v=20261031l"></script>
-<script src="sync.js?v=20261031l"></script>
-<script src="mail.js?v=20261031l"></script>
-<script src="photos.js?v=20261031l"></script>
-<script src="privacy.js?v=20261031l"></script>
+<script src="land.js?v=20261031m"></script>
+<script src="app.js?v=20261031m"></script>
+<script src="config.js?v=20261031m"></script>
+<script src="common.js?v=20261031m"></script>
+<script src="msauth.js?v=20261031m"></script>
+<script src="google.js?v=20261031m"></script>
+<script src="microsoft.js?v=20261031m"></script>
+<script src="apple.js?v=20261031m"></script>
+<script src="sync.js?v=20261031m"></script>
+<script src="mail.js?v=20261031m"></script>
+<script src="photos.js?v=20261031m"></script>
+<script src="privacy.js?v=20261031m"></script>
+<script src="space.js?v=20261031m"></script>
 <script>
 // Tabs: Overview, Records, Flight log, Account. The open tab is in the address (#log etc.) so it can be bookmarked.
 (function(){
   const views=[...document.querySelectorAll(".view")], tabs=[...document.querySelectorAll(".tabnav .tab")];
-  const byHash={overview:"home",add:"add",log:"log",account:"account",records:"home"};
+  const byHash={overview:"home",add:"add",log:"log",account:"account",records:"home",space:"space"};
   function show(){
     const v=byHash[location.hash.slice(1)]||"home";
     views.forEach(el=>{el.hidden=el.dataset.view!==v;});
