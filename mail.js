@@ -12,7 +12,7 @@
   const $ = id => document.getElementById(id);
 
   const MAX_EMAILS = 400; // per scan
-  const CONCURRENCY = 6;
+  const CONCURRENCY = 3; // Gmail refuses too many simultaneous requests from one user
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   const since = years => { const d = new Date(); d.setFullYear(d.getFullYear() - years); return d; };
 
@@ -20,17 +20,20 @@
   const TERMS = ["boarding pass", "itinerary", "e-ticket", "eticket", "flight confirmation", "confirmation code",
                  "record locator", "trip confirmation", "your flight", "flight receipt", "check in for your flight"];
 
+  // Runs worker over items a few at a time. Returns the results plus how many items failed.
   async function pool(items, worker, onEach){
-    const out = new Array(items.length); let next = 0, done = 0;
+    const out = new Array(items.length); let next = 0, done = 0, failed = 0;
     async function run(){
       while(next < items.length){
         const i = next++;
-        try{ out[i] = await worker(items[i]); }catch(e){ if(e && e.code === "auth") throw e; out[i] = null; }
+        try{ out[i] = await worker(items[i]); }catch(e){ if(e && e.code === "auth") throw e; out[i] = null; failed++; }
         onEach(++done);
       }
     }
     await Promise.all(Array.from({ length: Math.min(CONCURRENCY, items.length) }, run));
-    return out.filter(Boolean);
+    const results = out.filter(Boolean);
+    results.failed = failed;
+    return results;
   }
 
   // ---------- Gmail ----------
@@ -65,7 +68,14 @@
   async function gapi(path, tries = 0){
     const r = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/" + path, { headers: { Authorization: "Bearer " + gmail.token } });
     if(r.status === 401){ gmail.token = null; throw U.err("auth", "Gmail access expired. Start the import again."); }
-    if((r.status === 429 || r.status >= 500) && tries < 3){ await sleep(800 * (tries + 1)); return gapi(path, tries + 1); }
+    let rateLimited = r.status === 429 || r.status >= 500;
+    if(r.status === 403){
+      // Gmail answers 403 (not 429) for "too many concurrent requests" and per-user rate limits.
+      const j = await r.clone().json().catch(()=>({}));
+      const reason = ((j.error && j.error.errors && j.error.errors[0] && j.error.errors[0].reason) || "") + " " + ((j.error && j.error.message) || "");
+      rateLimited = /rateLimit|concurrent|quota/i.test(reason);
+    }
+    if(rateLimited && tries < 5){ await sleep(600 * Math.pow(2, tries) + Math.random() * 400); return gapi(path, tries + 1); }
     if(!r.ok) throw U.err("http", "Gmail returned an error (" + r.status + ").");
     return r.json();
   }
@@ -90,7 +100,8 @@
   async function scanGmail(years, progress){
     const after = since(years);
     const q = "(flight OR flights OR airline) {" + TERMS.map(t => t.includes(" ") ? '"' + t + '"' : t).join(" ") + "}" +
-              " after:" + after.getFullYear() + "/" + (after.getMonth() + 1) + "/" + after.getDate() + " -in:spam -in:trash";
+              " after:" + after.getFullYear() + "/" + (after.getMonth() + 1) + "/" + after.getDate() +
+              " -in:spam -in:trash -category:promotions -category:social"; // skip fare sales and newsletters
     progress("Searching Gmail…");
     const ids = []; let page = "";
     do{
@@ -140,12 +151,23 @@
   }
 
   // ---------- shared flow ----------
-  let busy = false;
+  let busy = false, lastImport = [];
   function setBusy(on){
     busy = on;
     ["scanGmail", "scanOutlook", "mailRange"].forEach(id => { const el = $(id); if(el) el.disabled = on; });
   }
   function say(text, isErr){ const m = $("mailMsg"); m.textContent = text; m.classList.toggle("err", !!isErr); }
+  function sayWithUndo(text){
+    const m = $("mailMsg"); m.classList.remove("err"); m.textContent = text + " ";
+    const b = document.createElement("button");
+    b.className = "btn quiet"; b.type = "button"; b.textContent = "Undo";
+    b.addEventListener("click", () => {
+      App.removeFlights(lastImport);
+      say("Removed the " + lastImport.length + " imported " + (lastImport.length === 1 ? "flight" : "flights") + ".");
+      lastImport = [];
+    });
+    m.appendChild(b);
+  }
 
   async function scan(source, years){
     setBusy(true);
@@ -165,11 +187,29 @@
           found.push(Object.assign(f, { src: m.subject || "(no subject)" }));
         });
       });
-      found.sort((a, b) => b.date.localeCompare(a.date));
-      say("");
-      App.reviewCandidates(found, found.length
-        ? "Found " + found.length + " " + (found.length === 1 ? "flight" : "flights") + " in " + emails.length + " " + label + " emails. Upcoming flights start unchecked. Check the list, then add."
-        : "Looked through " + emails.length + " " + label + " emails and didn't find any flights. Try a longer time range, or paste an email below.");
+      const flights = App.dropNumberless(found).sort((a, b) => b.date.localeCompare(a.date));
+      const unread = emails.failed ? " " + emails.failed + " " + (emails.failed === 1 ? "email" : "emails") + " couldn't be read; run the import again to retry them." : "";
+      const plural = (n, w) => n + " " + w + (n === 1 ? "" : "s");
+
+      if(CFG.autoAddImported === false){
+        say("");
+        App.reviewCandidates(flights, flights.length
+          ? "Found " + plural(flights.length, "flight") + " in " + plural(emails.length, label + " email") + ". Check the list, then add." + unread
+          : "Looked through " + plural(emails.length, label + " email") + " and didn't find any flights." + unread);
+        return;
+      }
+      // Flights already flown go straight into the log; upcoming ones wait until they've happened.
+      const today = new Date().toISOString().slice(0, 10);
+      const past = flights.filter(f => f.date <= today), upcoming = flights.filter(f => f.date > today);
+      const result = App.addImported(past);
+      lastImport = result.ids;
+      const added = result.ids.length;
+      const summary = (added ? "Added " + plural(added, "flight") : "No new flights") + " from " + plural(emails.length, label + " email") +
+        (result.already ? " (" + result.already + " already in your log)" : "") + "." + unread;
+      added ? sayWithUndo(summary) : say(summary);
+      App.reviewCandidates(upcoming, upcoming.length
+        ? plural(upcoming.length, "upcoming flight") + " found. Tick any you want to add now, or import again after you fly."
+        : "");
     }catch(e){
       if(e && e.code === "cancelled") say("");
       else say((e && e.message) || "The import stopped. Try again.", true);

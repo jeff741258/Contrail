@@ -8,7 +8,7 @@
   const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.appdata";
   const SCOPE = DRIVE_SCOPE + " openid email profile";
   const FILE = "contrail.json";
-  const TOKEN_KEY = "contrail.google.token"; // sessionStorage: survives reloads, not browser restarts
+  const TOKEN_KEY = "contrail.google.token"; // localStorage: shared by every tab until it expires (1 hour)
   const USER_KEY = "contrail.google.user";   // localStorage: lets "Reconnect" pre-fill the account
 
   let cfg, hooks, client, token = null, expires = 0, fileId = null, user = null, waiter = null;
@@ -18,7 +18,7 @@
     const r = await fetch(url, Object.assign({}, opt, {
       headers: Object.assign({ Authorization: "Bearer " + token }, opt.headers || {})
     }));
-    if(r.status === 401){ token = null; U.writeJSON(sessionStorage, TOKEN_KEY, null); throw U.err("auth", "Your Google session expired."); }
+    if(r.status === 401){ token = null; U.writeJSON(localStorage, TOKEN_KEY, null); throw U.err("auth", "Your Google session expired."); }
     if(!r.ok) throw U.err("http", "Google Drive returned an error (" + r.status + ").");
     return r;
   }
@@ -52,8 +52,8 @@
         }
       });
       if(!remembered) return;
-      // A token from earlier in this browser session is still good for up to an hour.
-      const saved = U.readJSON(sessionStorage, TOKEN_KEY);
+      // A token from the last hour, from this tab or another one, is still good.
+      const saved = U.readJSON(localStorage, TOKEN_KEY);
       if(saved && saved.expires > Date.now() + 60000){
         token = saved.token; expires = saved.expires; user = saved.user;
         hooks.onSignedIn("google", user, { auto: true });
@@ -78,7 +78,7 @@
       expires = Date.now() + (Number(r.expires_in) || 3600) * 1000 - 60000;
       const me = await (await api("https://www.googleapis.com/oauth2/v3/userinfo")).json();
       user = { name: me.name || "", email: me.email || "" };
-      U.writeJSON(sessionStorage, TOKEN_KEY, { token, expires, user });
+      U.writeJSON(localStorage, TOKEN_KEY, { token, expires, user });
       U.writeJSON(localStorage, USER_KEY, user);
       hooks.onSignedIn("google", user, { auto: false });
       return user;
@@ -87,7 +87,7 @@
     async signOut(){
       if(token){ try{ google.accounts.oauth2.revoke(token, ()=>{}); }catch(_){} }
       token = null; fileId = null; user = null;
-      U.writeJSON(sessionStorage, TOKEN_KEY, null);
+      U.writeJSON(localStorage, TOKEN_KEY, null);
       U.writeJSON(localStorage, USER_KEY, null);
       hooks.onSignedOut("google");
     },

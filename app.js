@@ -379,13 +379,17 @@ $("fileIn").addEventListener("change",e=>{
   const files=[...e.target.files];if(!files.length)return;
   Promise.all(files.map(f=>f.text())).then(ts=>{const all=ts.join("\n\n-----\n\n");$("emailIn").value=cleanEmail(all).slice(0,20000);runParse(all);e.target.value="";});
 });
-function addFlights(arr){
-  if(!arr.length)return 0;
+function addFlights(arr){return addFlightsIds(arr).length;}
+// Adds flights not already in the log; returns the ids of the ones it added.
+function addFlightsIds(arr){
+  if(!arr.length)return [];
   if(flights.every(f=>f.example))flights=[];
   const have=new Set(flights.map(keyOf));let n=0;
   const now=Date.now();
-  arr.forEach(f=>{const k=keyOf(f);if(have.has(k))return;have.add(k);flights.push({id:uid(),airline:f.airline||"",num:f.num||"",from:f.from,to:f.to,date:f.date,added:now});n++;});
-  save();render();return n;
+  const ids=[];
+  arr.forEach(f=>{const k=keyOf(f);if(have.has(k))return;have.add(k);const id=uid();ids.push(id);flights.push({id,airline:f.airline||"",num:f.num||"",from:f.from,to:f.to,date:f.date,added:now});n++;});
+  if(ids.length){save();render();}
+  return ids;
 }
 $("addSel").addEventListener("click",()=>{
   const pick=[...document.querySelectorAll("#cands input:checked")].map(i=>candidates[+i.dataset.i]);
@@ -509,7 +513,26 @@ function reviewCandidates(list,message){
   showCandidates(list);
   ($("candWrap").hidden?msg:$("candWrap")).scrollIntoView({behavior:"smooth",block:"nearest"});
 }
-window.ContrailApp={getDoc,setDoc,keyOf,parseEmails,reviewCandidates};
+// A flight found without a flight number is dropped when the same route on the same day
+// also appears with one (in this batch or already in the log).
+function dropNumberless(list){
+  const numbered=new Set(real().concat(list).filter(f=>f.airline&&f.num).map(f=>f.from+f.to+f.date));
+  return list.filter(f=>(f.airline&&f.num)||!numbered.has(f.from+f.to+f.date));
+}
+// Adds imported flights straight to the log. Returns {ids, already} so the import can offer Undo.
+function addImported(list){
+  const have=new Set(real().map(keyOf));
+  const fresh=list.filter(f=>!have.has(keyOf(f)));
+  return {ids:addFlightsIds(fresh),already:list.length-fresh.length};
+}
+function removeFlights(ids){
+  const set=new Set(ids),now=Date.now();
+  flights.filter(f=>set.has(f.id)&&!f.example).forEach(f=>{const k=keyOf(f);removed=removed.filter(r=>r.k!==k);removed.push({k,at:now});});
+  flights=flights.filter(f=>!set.has(f.id));
+  if(!flights.length)flights=EXAMPLES.map(f=>Object.assign({},f,{id:uid(),example:true}));
+  save();render();
+}
+window.ContrailApp={getDoc,setDoc,keyOf,parseEmails,reviewCandidates,dropNumberless,addImported,removeFlights};
 
 load();render();
 })();

@@ -4,6 +4,9 @@
 // None of these values are secret: they identify your app, and each provider only
 // accepts sign-ins from the web addresses you registered.
 window.CONTRAIL_CONFIG = {
+  // After an inbox import, add flights already flown straight to the log (with Undo).
+  // Set to false to review every flight before it's added.
+  autoAddImported: true,
   sync: {
     // While the app is open and on screen, check the cloud for changes from other devices this often.
     // Minimum 15. Each check is one or two small requests to the user's own cloud account.
@@ -16,4 +19,22 @@ window.CONTRAIL_CONFIG = {
     // Show "Import from Gmail". Needs the gmail.readonly scope on your consent screen (see README).
     gmailImport: true
   },
+  microsoft: {
+    // Microsoft Entra admin center > App registrations > your app > Application (client) ID
+    clientId: "",
+    // "common" lets both personal Microsoft accounts and work/school accounts sign in.
+    tenant: "common",
+    // Leave empty to use the page's own address. It must exactly match a SPA redirect URI you registered.
+    redirectUri: "",
+    // Show "Import from Outlook". Needs the Mail.Read permission on your app registration (see README).
+    mailImport: true
+  },
+  apple: {
+    // CloudKit Console > your container, e.g. "iCloud.com.yourname.contrail"
+    containerId: "",
+    // CloudKit Console > Tokens & Keys > API Tokens
+    apiToken: "",
+    // "development" while testing; switch to "production" after deploying the schema.
+    environment: "development"
+  }
 };
