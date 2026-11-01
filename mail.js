@@ -310,6 +310,7 @@
     // Back from Microsoft's sign-in page? Pick up the scan the user started.
     outlook.handleRedirect().then(back => {
       if(back && back.resume && back.resume.source === "outlook"){
+        if(location.hash !== "#add") location.hash = "add"; // results appear on the Add flights tab
         $("mailRange").value = String(back.resume.years);
         if(!$("mailRange").value) $("mailRange").value = "2";
         scan("outlook", back.resume.years);

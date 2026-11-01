@@ -294,7 +294,7 @@ body.noscroll{overflow:hidden}
 .acform .btn{padding:4px 10px;font-size:13px}
 .manual .span2{grid-column:span 2}
 
-/* tabs: right-hand menu on wide screens, bottom bar on phones */
+/* tabs: left-hand menu on wide screens, bottom bar on phones */
 main{display:flex;flex-direction:column;gap:28px}
 .view{display:flex;flex-direction:column;gap:28px}
 .tabnav{display:flex;gap:4px}
@@ -303,7 +303,8 @@ main{display:flex;flex-direction:column;gap:28px}
 .tabnav .tab:hover{color:var(--ink)}
 .tabnav .tab[aria-current="page"]{color:var(--ink)}
 @media (min-width:980px){
-  .shell{display:grid;grid-template-columns:minmax(0,760px) 196px;gap:40px;justify-content:center;align-items:start}
+  .shell{display:grid;grid-template-columns:196px minmax(0,760px);gap:40px;justify-content:center;align-items:start}
+  .shell .tabnav{order:-1}
   .shell .wrap{margin:0;max-width:none}
   .tabnav{position:sticky;top:calc(20px + env(safe-area-inset-top,0px));flex-direction:column;padding-top:44px}
   .tabnav .tab{padding:10px 14px;border:1px solid transparent}
