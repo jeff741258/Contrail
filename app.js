@@ -253,12 +253,43 @@ function logPeriods(list){
   years.forEach(y=>tabs.push({id:y,label:y,test:f=>f.date.slice(0,4)===y}));
   return tabs;
 }
+// ---------- flight log search and filters ----------
+// Search matches every word typed against the airports, their cities, the airline (code and name),
+// the flight number and the aircraft. Filters narrow by date range, airport, airline and aircraft.
+const lf={q:"",from:"",to:"",ap:"",al:"",ac:""};
+function lfActive(){return !!(lf.q||lf.from||lf.to||lf.ap||lf.al||lf.ac);}
+function lfCount(){return ["from","to","ap","al","ac"].filter(k=>lf[k]).length;}
+function haystack(f){
+  return [f.from,f.to,AP[f.from]&&AP[f.from].city,AP[f.to]&&AP[f.to].city,f.airline,AL[f.airline],
+    f.airline&&f.num?f.airline+f.num:"",f.airline&&f.num?f.airline+" "+f.num:"",f.num,f.ac,f.date].filter(Boolean).join(" ").toLowerCase();
+}
+function lfMatch(f){
+  if(lf.from&&f.date<lf.from)return false;
+  if(lf.to&&f.date>lf.to)return false;
+  if(lf.ap&&f.from!==lf.ap&&f.to!==lf.ap)return false;
+  if(lf.al&&f.airline!==lf.al)return false;
+  if(lf.ac&&(f.ac||"")!==lf.ac)return false;
+  if(lf.q){const h=haystack(f);if(!lf.q.toLowerCase().split(/\s+/).filter(Boolean).every(w=>h.includes(w)))return false;}
+  return true;
+}
+// Fills the pick-lists with what's actually in the log, keeping the current choice.
+function fillFilterLists(list){
+  const fill=(id,items,all)=>{const el=$(id),cur=lf[id==="lfAp"?"ap":id==="lfAl"?"al":"ac"];
+    el.innerHTML=`<option value="">${all}</option>`+items.map(([v,t])=>`<option value="${esc(v)}"${v===cur?" selected":""}>${esc(t)}</option>`).join("");};
+  const aps=[...new Set(list.flatMap(f=>[f.from,f.to]))].map(c=>[c,`${AP[c].city} (${c})`]).sort((a,b)=>a[1].localeCompare(b[1]));
+  const als=[...new Set(list.map(f=>f.airline).filter(Boolean))].map(c=>[c,`${AL[c]||c} (${c})`]).sort((a,b)=>a[1].localeCompare(b[1]));
+  const acs=[...new Set(list.map(f=>f.ac).filter(Boolean))].sort().map(a=>[a,a]);
+  fill("lfAp",aps,"Any airport");fill("lfAl",als,"Any airline");fill("lfAc",acs,"Any aircraft");
+  const n=lfCount();$("lfCount").textContent=n?String(n):"";$("lfCount").hidden=!n;$("lfClear").hidden=!lfActive();
+}
 function renderLog(list){
   logList=list;
   const L=$("log"),T=$("logTabs"),S=$("logSum"),P=$("logPager");
+  fillFilterLists(list);
   if(!list.length){T.innerHTML="";S.textContent="";P.hidden=true;
     L.innerHTML='<div class="empty">No flights yet. Paste a confirmation email above to start your log.</div>';return;}
-  const tabs=logPeriods(list);
+  const all=list;list=list.filter(lfMatch);
+  const tabs=logPeriods(all);
   if(!tabs.some(t=>t.id===logTab))logTab="all";
   const tab=tabs.find(t=>t.id===logTab);
   T.innerHTML=tabs.map(t=>{const n=list.filter(t.test).length;
@@ -266,14 +297,15 @@ function renderLog(list){
   const shown=list.filter(tab.test);
   const km=shown.reduce((s,f)=>s+distKm(f.from,f.to),0);
   const label=tab.id==="all"?"All time":tab.id==="ytd"?"This year so far":tab.label;
-  S.textContent=`${label}: ${shown.length} ${shown.length===1?"flight":"flights"} · ${fmtDist(km)} ${unit}`+(shown.length?` · ${new Set(shown.flatMap(f=>[f.from,f.to])).size} airports`:"");
+  const of=lfActive()?` of ${all.filter(tab.test).length}`:"";
+  S.textContent=`${label}: ${lfActive()?"showing ":""}${shown.length}${of} ${(of?all.filter(tab.test).length:shown.length)===1?"flight":"flights"} · ${fmtDist(km)} ${unit}`+(shown.length?` · ${new Set(shown.flatMap(f=>[f.from,f.to])).size} airports`:"");
   const pages=Math.max(1,Math.ceil(shown.length/PAGE));
   logPage=Math.min(logPage,pages-1);
   const page=shown.slice(logPage*PAGE,logPage*PAGE+PAGE);
   P.hidden=shown.length<=PAGE;
   $("pgInfo").textContent=shown.length?`${logPage*PAGE+1}–${logPage*PAGE+page.length} of ${shown.length}`:"";
   $("pgPrev").disabled=logPage===0;$("pgNext").disabled=logPage>=pages-1;
-  if(!shown.length){L.innerHTML='<div class="empty">No flights in this period.</div>';return;}
+  if(!shown.length){L.innerHTML=lfActive()?'<div class="empty">No flights match your search. <button type="button" class="btn quiet" id="lfClear2">Clear search and filters</button></div>':'<div class="empty">No flights in this period.</div>';return;}
   const PH=window.ContrailPhotos;
   L.innerHTML=page.map(f=>{
     const a=AP[f.from],b=AP[f.to],k=keyOf(f),ids=photosFor(k),open=PH&&!f.example&&openPh===k;
@@ -547,6 +579,15 @@ $("log").addEventListener("submit",e=>{
 });
 $("log").addEventListener("keydown",e=>{if(e.key==="Escape"&&e.target.closest(".acform")){const id=editAc;editAc=null;renderLog(logList);const b=$("log").querySelector('.acb[data-id="'+id+'"]');if(b)b.focus();}});
 $("acList").innerHTML=AC_LIST.map(n=>`<option value="${n}"></option>`).join("");
+// search + filters
+let lqT=0;
+$("lq").addEventListener("input",e=>{clearTimeout(lqT);lqT=setTimeout(()=>{lf.q=e.target.value.trim();logPage=0;renderLog(logList);},150);});
+[["lfFrom","from"],["lfTo","to"],["lfAp","ap"],["lfAl","al"],["lfAc","ac"]].forEach(([id,k])=>$(id).addEventListener("change",e=>{lf[k]=e.target.value;logPage=0;renderLog(logList);}));
+function clearFilters(){Object.keys(lf).forEach(k=>lf[k]="");["lq","lfFrom","lfTo"].forEach(id=>$(id).value="");logPage=0;renderLog(logList);$("lq").focus();}
+$("lfClear").addEventListener("click",clearFilters);
+$("log").addEventListener("click",e=>{if(e.target.closest("#lfClear2"))clearFilters();});
+$("lfToggle").addEventListener("click",()=>{const open=$("lfPanel").hidden;$("lfPanel").hidden=!open;$("lfToggle").setAttribute("aria-expanded",String(open));});
+if(matchMedia("(min-width: 980px)").matches){$("lfPanel").hidden=false;$("lfToggle").setAttribute("aria-expanded","true");}
 $("logTabs").addEventListener("click",e=>{const b=e.target.closest(".ltab");if(!b)return;
   logTab=b.dataset.tab;logPage=0;try{localStorage.setItem(TKEY,logTab);}catch(_){}renderLog(logList);
   const sel=$("logTabs").querySelector('[aria-selected="true"]');if(sel&&sel.focus)sel.focus();});

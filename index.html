@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="styles.css?v=20261031k">
+<link rel="stylesheet" href="styles.css?v=20261031l">
 </head>
 <body>
 <div class="shell">
@@ -119,6 +119,18 @@
     <div class="view" data-view="log" hidden>
       <section>
         <div class="sec-h"><h2>Flight log</h2><button class="btn quiet" id="copyCsv">Copy as CSV</button></div>
+        <div class="lsearch">
+          <input type="search" id="lq" placeholder="Search city, airport, airline, flight or aircraft" aria-label="Search flights" autocomplete="off">
+          <button class="btn" id="lfToggle" type="button" aria-expanded="false" aria-controls="lfPanel">Filters <span class="lfn" id="lfCount" hidden></span></button>
+        </div>
+        <div class="lfpanel" id="lfPanel" hidden>
+          <label>From<input type="date" id="lfFrom"></label>
+          <label>To<input type="date" id="lfTo"></label>
+          <label>Airport or city<select id="lfAp"></select></label>
+          <label>Airline<select id="lfAl"></select></label>
+          <label>Aircraft<select id="lfAc"></select></label>
+          <button class="btn quiet" id="lfClear" type="button" hidden>Clear filters</button>
+        </div>
         <div class="logtabs" id="logTabs" role="tablist" aria-label="Time period"></div>
         <p class="logsum" id="logSum"></p>
         <div class="log" id="log" role="tabpanel"></div>
@@ -202,18 +214,18 @@
   </nav>
 </div>
 
-<script src="land.js?v=20261031k"></script>
-<script src="app.js?v=20261031k"></script>
-<script src="config.js?v=20261031k"></script>
-<script src="common.js?v=20261031k"></script>
-<script src="msauth.js?v=20261031k"></script>
-<script src="google.js?v=20261031k"></script>
-<script src="microsoft.js?v=20261031k"></script>
-<script src="apple.js?v=20261031k"></script>
-<script src="sync.js?v=20261031k"></script>
-<script src="mail.js?v=20261031k"></script>
-<script src="photos.js?v=20261031k"></script>
-<script src="privacy.js?v=20261031k"></script>
+<script src="land.js?v=20261031l"></script>
+<script src="app.js?v=20261031l"></script>
+<script src="config.js?v=20261031l"></script>
+<script src="common.js?v=20261031l"></script>
+<script src="msauth.js?v=20261031l"></script>
+<script src="google.js?v=20261031l"></script>
+<script src="microsoft.js?v=20261031l"></script>
+<script src="apple.js?v=20261031l"></script>
+<script src="sync.js?v=20261031l"></script>
+<script src="mail.js?v=20261031l"></script>
+<script src="photos.js?v=20261031l"></script>
+<script src="privacy.js?v=20261031l"></script>
 <script>
 // Tabs: Overview, Records, Flight log, Account. The open tab is in the address (#log etc.) so it can be bookmarked.
 (function(){
