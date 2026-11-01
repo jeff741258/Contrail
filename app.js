@@ -29,10 +29,9 @@ Object.keys(AP).forEach(c=>{const a=AP[c];
   if(a.name&&a.name!==a.muni)addName(a.name,c,"name");
   if(CURATED.has(c)&&a.city!==a.muni)addName(a.city,c,"name"); // e.g. "Tokyo Haneda"
   (a.kw||[]).forEach(k=>addName(k,c,"name"));
-  if(a.name)a.name.split(" ").forEach(w=>{if(w.length>=5&&a.muni&&!a.muni.toLowerCase().includes(w.toLowerCase()))addName(w,c,"word");});
 });
 // Words that are also place names but in an email are almost always something else.
-const NOT_PLACES = new Set(["class","economy","premium","business","first","seat","seats","number","sector","flight","flights","from","date","total","gate","terminal","mobile","nice","split","male","page","price","reading","orange","bath","victoria","eagle","independence","liberal","hope","marathon","friendly","grand","union","central","national","regional","north","south","east","west","new","port","saint","fort","lake","island","islands","city","valley","beach","bay","river","mount","general","airport","international","passenger","reservation","details","payment","adult","child","arrival","departure","depart","arrive","operated","boarding","confirmation","booking","receipt","itinerary","dear"]);
+const NOT_PLACES = new Set(["fare","fares","route","routes","boeing","airbus","embraer","bombardier","total","base","basic","main","standard","saver","flex","comfort","select","plus","value","light","lite","classic","premier","elite","gold","silver","platinum","star","alliance","window","aisle","carry","bags","baggage","meal","status","miles","points","reward","refund","change","cancel","policy","terms","conditions","notice","important","information","contact","customer","service","support","manage","view","check","online","email","phone","welcome","thank","thanks","hello","summary","trip","travel","traveler","name","time","times","local","duration","stop","stops","nonstop","direct","connection","layover","class","economy","premium","business","first","seat","seats","number","sector","flight","flights","from","date","total","gate","terminal","mobile","nice","split","male","page","price","reading","orange","bath","victoria","eagle","independence","liberal","hope","marathon","friendly","grand","union","central","national","regional","north","south","east","west","new","port","saint","fort","lake","island","islands","city","valley","beach","bay","river","mount","general","airport","international","passenger","reservation","details","payment","adult","child","arrival","departure","depart","arrive","operated","boarding","confirmation","booking","receipt","itinerary","dear"]);
 const AMBIG = new Set(["CAN","PER","ADD","MAN","SEA","DEN","BOS","MIA","LAS","ANC","BER","OPO","LOS","SHA","FAT","NAN","JAC","HOU","OKA","AUS","PVD","LIN","BUD","CUN","RIC","SAT"]);
 const COUNTRY_NAMES = {};
 
@@ -154,18 +153,33 @@ function findPlaces(s){
     }
   }
   // merge "City (Specific)" pairs into the specific airport
-  const out=[];
+  const spans=[];
   for(let k=0;k<hits.length;k++){
     const h=hits[k],nx=hits[k+1];
-    let cands=h.c;
+    let cands=h.c,e=h.e;
     if(nx&&nx.i-h.e<=3){
       const both=h.c.filter(x=>nx.c.some(y=>y.code===x.code));
-      if(both.length){cands=both;k++;}
+      if(both.length){cands=both;e=nx.e;k++;}
     }
-    // biggest airport first; then the one actually in that city; then the better-known one
-    const best=cands.slice().sort((a,b)=>b.size-a.size||(b.kind==="city")-(a.kind==="city")||(CURATED.has(b.code)-CURATED.has(a.code)))[0];
-    if(!out.length||out[out.length-1]!==best.code)out.push(best.code);
+    // well-known airport first; then the biggest; then the one actually in that city
+    const best=cands.slice().sort((a,b)=>(CURATED.has(b.code)-CURATED.has(a.code))||b.size-a.size||(b.kind==="city")-(a.kind==="city"))[0];
+    spans.push({i:h.i,e,code:best.code});
   }
+  // A name only counts when it's written like part of a route: followed by a time ("Kagoshima 10:00"),
+  // in brackets, under a From/To/Depart/Arrive label, or joined to another place by an arrow, dash or "to".
+  const LINK=/^\s*\)?\s*(?:→|->|–|—|-|>|✈|to|until|bis|à|a)\s*\(?\s*$/i;
+  const ok=spans.map((sp,k)=>{
+    const after=s.slice(sp.e,sp.e+18),before=s.slice(Math.max(0,sp.i-40),sp.i);
+    if(/^\s*\)?\s*[-–,·|]?\s*\d{1,2}[:.h]\d{2}/.test(after))return true;
+    if(/\(\s*$/.test(before)&&/^\s*\)/.test(after))return true;
+    if(/(?:^|\n|\b)(?:from|to|depart(?:s|ing|ure)?|arriv(?:e|es|ing|al)|origin|destination|leaving|landing)\b\s*[:\-]?\s*\n?\s*$/i.test(before))return true;
+    const prev=spans[k-1],next=spans[k+1];
+    if(next&&LINK.test(s.slice(sp.e,next.i)))return true;
+    if(prev&&LINK.test(s.slice(prev.e,sp.i)))return true;
+    return false;
+  });
+  const out=[];
+  spans.forEach((sp,k)=>{if(ok[k]&&(!out.length||out[out.length-1]!==sp.code))out.push(sp.code);});
   return out;
 }
 function cleanEmail(t){
