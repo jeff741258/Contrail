@@ -235,7 +235,9 @@ const AC_LIST=[...new Set(Object.values(AC_CODES))].sort();
 
 // refDate (optional): when the email arrived. Dates written without a year ("Fri, Nov 14") are
 // then placed on or after ~2 months before that day, which is how booking emails read.
-function parseEmails(raw,refDate){
+// opts.requireNumber: only flights with a flight number (inbox imports, where sale emails like
+// "Columbus → Philadelphia from $79" would otherwise look like trips).
+function parseEmails(raw,refDate,opts){
   const text=cleanEmail(raw);
   const yrM=text.match(/\b(20[2-3]\d)\b/); const defYear=refDate?"1900":yrM?yrM[1]:String(new Date().getFullYear());
   const codes=[...TRUSTED_AL].sort((a,b)=>b.length-a.length);
@@ -284,8 +286,8 @@ function parseEmails(raw,refDate){
     const ac=findAircraft(line)||findAircraft(fwd)||findAircraft(back.slice(-200));
     found.push({airline:h.airline,num:h.num,from,to,date,ac});
   });
-  // route-only fallback: "SFO → JFK" with no flight numbers
-  if(!found.length){
+  // route-only fallback: "SFO → JFK" with no flight numbers (pasted emails only; you review them)
+  if(!found.length&&!(opts&&opts.requireNumber)){
     const rx=/\b([A-Z]{3})\s*(?:→|->|–|—|-|✈|to)\s*([A-Z]{3})\b/g;
     while((m=rx.exec(text))){if(AP[m[1]]&&AP[m[2]]&&m[1]!==m[2]){
       const date=findDate(text.slice(Math.max(0,m.index-200),m.index+300),defYear)||findDate(text,defYear);
@@ -381,7 +383,7 @@ function lfMatch(f){
   if(lf.from&&f.date<lf.from)return false;
   if(lf.to&&f.date>lf.to)return false;
   if(lf.ap&&f.from!==lf.ap&&f.to!==lf.ap)return false;
-  if(lf.al&&f.airline!==lf.al)return false;
+  if(lf.al==="-"?(f.airline&&f.num):(lf.al&&f.airline!==lf.al))return false;
   if(lf.ac==="*"?!f.ac:(lf.ac&&(f.ac||"")!==lf.ac))return false;
   if(lf.route){const [a,b]=lf.route;if(!((f.from===a&&f.to===b)||(!lf.oneway&&f.from===b&&f.to===a)))return false;}
   if(lf.q){const h=haystack(f);if(!lf.q.toLowerCase().split(/\s+/).filter(Boolean).every(w=>h.includes(w)))return false;}
@@ -394,7 +396,7 @@ function fillFilterLists(list){
   const aps=[...new Set(list.flatMap(f=>[f.from,f.to]))].map(c=>[c,`${AP[c].city} (${c})`]).sort((a,b)=>a[1].localeCompare(b[1]));
   const als=[...new Set(list.map(f=>f.airline).filter(Boolean))].map(c=>[c,`${AL[c]||c} (${c})`]).sort((a,b)=>a[1].localeCompare(b[1]));
   const acs=[...new Set(list.map(f=>f.ac).filter(Boolean))].sort().map(a=>[a,a]);
-  fill("lfAp",aps,"Any airport");fill("lfAl",als,"Any airline");fill("lfAc",[["*","Any recorded aircraft"]].concat(acs),"Any aircraft");
+  fill("lfAp",aps,"Any airport");fill("lfAl",(list.some(f=>!(f.airline&&f.num))?[["-","No flight number"]]:[]).concat(als),"Any airline");fill("lfAc",[["*","Any recorded aircraft"]].concat(acs),"Any aircraft");
   // a route opened from Records shows as a removable chip
   $("lfRoute").hidden=!lf.route;
   if(lf.route)$("lfRouteText").textContent=lf.route[0]+(lf.oneway?" → ":" ⇄ ")+lf.route[1];

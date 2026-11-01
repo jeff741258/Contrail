@@ -233,7 +233,7 @@
       // Each email is parsed the moment it's read; only the flights are kept.
       consume(m){
         let flights = [];
-        try{ flights = App.parseEmails(m.text, m.date); }catch(_){}
+        try{ flights = App.parseEmails(m.text, m.date, { requireNumber: true }); }catch(_){}
         flights.forEach(f => {
           const k = App.keyOf(f);
           if(seen.has(k)) return;
