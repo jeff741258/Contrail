@@ -411,3 +411,8 @@ a.ap-h::after{content:"›";color:var(--muted);font-size:18px;line-height:1;marg
 .map-export{display:flex;flex-direction:column;align-items:flex-start;gap:10px}
 .map-export p{margin:0}
 #mapExMsg:empty{display:none}
+.sp-top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.sp-ex{border:1px solid #2A3A5E;background:#0F1729;color:#DCE5F5;border-radius:8px;padding:7px 12px;font-weight:600;font-size:13.5px;cursor:pointer}
+.sp-ex:hover{border-color:#86A9FF;color:#fff}
+.sp-exmsg{margin:6px 0 0;font-size:13px;color:#9FB7FF}
+.sp-exmsg:empty{display:none}

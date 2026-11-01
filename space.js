@@ -81,6 +81,79 @@
     }).join("");
   }
 
+  // ---------- export: the page as a shareable image ----------
+  function exportImage(){
+    const total = App.totalKm();
+    const W = 1200, H = 1560, k = 2, PAD = 64;
+    const cv = document.createElement("canvas"); cv.width = W * k; cv.height = H * k;
+    const x = cv.getContext("2d"); x.scale(k, k);
+    const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+    const FD = css("--f-display"), FB = css("--f-body"), FM = css("--f-mono");
+    // night sky with a fixed scatter of stars (the same every time)
+    x.fillStyle = "#070B14"; x.fillRect(0, 0, W, H);
+    let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    for(let i = 0; i < 260; i++){ x.globalAlpha = .15 + rnd() * .55; x.fillStyle = "#E9EEF7"; x.beginPath(); x.arc(rnd() * W, rnd() * H, rnd() * 1.3 + .2, 0, 7); x.fill(); }
+    x.globalAlpha = 1;
+    // header
+    x.fillStyle = "#fff"; x.font = "800 22px " + FD; x.fillText("CONTRAIL", PAD, PAD + 18);
+    x.fillStyle = "#86A9FF"; x.fillText(".", PAD + x.measureText("CONTRAIL").width, PAD + 18);
+    x.fillStyle = "#8E9BB5"; x.font = "600 13px " + FM; x.fillText("TOTAL DISTANCE FLOWN", PAD, PAD + 70);
+    x.fillStyle = "#fff"; x.font = "800 84px " + FD; x.fillText(big(total), PAD, PAD + 150, W - PAD * 2);
+    x.fillStyle = "#B9C4D8"; x.font = "18px " + FB; x.fillText($("spLead").textContent, PAD, PAD + 190, W - PAD * 2);
+    // ladder, on the same log scale as the page
+    const top = PAD + 260, bot = H - 170, LH = bot - top, lx = PAD + 130;
+    const Y = km => bot - pos(km) * LH;
+    const toKm = v => App.unit() === "mi" ? v / 0.621371 : v;
+    x.font = "12px " + FM; x.textAlign = "right";
+    for(let e = 3; e <= 9; e++){
+      const p = pos(toKm(Math.pow(10, e))); if(p > .99) continue;
+      const y = bot - p * LH;
+      x.strokeStyle = "#1E2A44"; x.setLineDash([3, 4]); x.beginPath(); x.moveTo(PAD, y); x.lineTo(lx, y); x.stroke(); x.setLineDash([]);
+      x.fillStyle = "#5F6E8C"; x.fillText(["1K","10K","100K","1M","10M","100M","1B"][e - 3] + " " + App.unit(), lx - 12, y - 6);
+    }
+    x.textAlign = "start";
+    x.fillStyle = "#1E2A44"; x.fillRect(lx - 1, top, 2, LH);
+    const you = bot - pos(total) * LH;
+    const g = x.createLinearGradient(0, bot, 0, you); g.addColorStop(0, "#86A9FF"); g.addColorStop(1, "#86A9FF55");
+    x.fillStyle = g; x.fillRect(lx - 2.5, you, 5, bot - you);
+    let last = 1e9;
+    PLACES.forEach(p => {
+      const st = status(total, p), y = Y(p.km), ly = Math.min(y, last - 22); last = ly;
+      x.fillStyle = "#070B14"; x.beginPath(); x.arc(lx, y, p.r * 1.6 + 4, 0, 7); x.fill();
+      x.fillStyle = p.color; x.beginPath(); x.arc(lx, y, p.r * 1.6, 0, 7); x.fill();
+      x.fillStyle = st.done ? "#C7D0E2" : "#7F8BA5"; x.font = "15px " + FB; x.fillText(p.short, lx + 26, ly + 5);
+    });
+    const eg = x.createRadialGradient(lx - 5, bot - 5, 2, lx, bot, 18); eg.addColorStop(0, "#7FC4FF"); eg.addColorStop(.6, "#2C6CD6"); eg.addColorStop(1, "#1B3F86");
+    x.fillStyle = eg; x.beginPath(); x.arc(lx, bot + 4, 16, 0, 7); x.fill();
+    x.fillStyle = "#E9EEF7"; x.font = "600 15px " + FB; x.fillText("Earth", lx + 26, bot + 9);
+    x.shadowColor = "#F2A93B"; x.shadowBlur = 18; x.fillStyle = "#F2A93B"; x.beginPath(); x.arc(lx, you, 9, 0, 7); x.fill(); x.shadowBlur = 0;
+    x.font = "600 14px " + FM; x.fillText("You · " + big(total), lx + 120, you + 5);
+    // milestones
+    const mx = PAD + 430, mw = W - PAD - mx, rowH = (bot - top) / PLACES.length;
+    PLACES.slice().reverse().forEach((p, i) => {
+      const st = status(total, p), y = top + i * rowH + rowH / 2;
+      x.fillStyle = p.color; x.beginPath(); x.arc(mx + 7, y, 7, 0, 7); x.fill();
+      x.fillStyle = "#E9EEF7"; x.font = "600 18px " + FB; x.fillText(p.name, mx + 28, y - 4);
+      x.fillStyle = "#8E9BB5"; x.font = "14px " + FB; x.fillText(big(p.km) + (p.note ? " · " + p.note.toLowerCase() : ""), mx + 28, y + 18);
+      x.textAlign = "right"; x.fillStyle = st.done ? "#F2A93B" : "#8E9BB5"; x.font = "600 15px " + FM; x.fillText(st.text, mx + mw, y - 4); x.textAlign = "start";
+      if(!st.done){ const bw = 140; x.fillStyle = "#1A2540"; x.fillRect(mx + mw - bw, y + 10, bw, 5); x.fillStyle = "#86A9FF"; x.fillRect(mx + mw - bw, y + 10, Math.max(3, bw * st.pct / 100), 5); }
+      x.fillStyle = "#1A2540"; x.fillRect(mx, y + rowH / 2 - 1, mw, 1);
+    });
+    // footer
+    x.fillStyle = "#5F6E8C"; x.font = "13px " + FB;
+    x.fillText("Log scale: each step up is ten times farther. Planets at their closest to Earth.", PAD, H - 92);
+    x.font = "12px " + FM; x.fillText("Made with Contrail · " + new Date().toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }), PAD, H - PAD + 6);
+    cv.toBlob(b => {
+      const msg = $("spExMsg");
+      if(!b){ msg.textContent = "Couldn't create the image. Try again."; return; }
+      const d = new Date(), iso = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+      const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = "contrail-to-the-moon-" + iso + ".png";
+      document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+      msg.textContent = "Downloaded " + a.download + ".";
+    }, "image/png");
+  }
+  $("spExport").addEventListener("click", () => { try{ exportImage(); }catch(e){ $("spExMsg").textContent = "The export didn't work (" + ((e && e.message) || "error") + ")."; } });
+
   function maybeRender(){ if(location.hash === "#space") render(); }
   addEventListener("hashchange", maybeRender);
   // stay current if flights or units change while the page is open
