@@ -13,9 +13,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="styles.css?v=20261031f">
+<link rel="stylesheet" href="styles.css?v=20261031g">
 </head>
 <body>
+<div class="shell">
 <div class="wrap">
   <header class="mast">
     <div class="brand">Contrail<span>.</span></div>
@@ -25,177 +26,209 @@
     <button class="btn install" id="installBtn" type="button" hidden>Install app</button>
   </header>
 
-  <div id="exNote" class="example-note" hidden>
-    <span><b>Example log.</b> These sample flights show what Contrail does. They disappear when you add your first real flight.</span>
-  </div>
+  <main id="main">
+    <div class="view" data-view="home">
+      <div id="exNote" class="example-note" hidden>
+        <span><b>Example log.</b> These sample flights show what Contrail does. They disappear when you add your first real flight.</span>
+      </div>
 
-  <div class="hero">
-    <div class="tally" id="tTotal">0</div>
-    <div class="tally-cap" id="tCap">flights logged<small id="tSince"></small></div>
-  </div>
+      <div class="hero">
+        <div class="tally" id="tTotal">0</div>
+        <div class="tally-cap" id="tCap">flights logged<small id="tSince"></small></div>
+      </div>
 
-  <div class="stats">
-    <div class="stat"><span class="label">Distance</span><span class="v" id="sDist">0</span></div>
-    <div class="stat"><span class="label">Around Earth</span><span class="v" id="sLaps">0</span></div>
-    <div class="stat"><span class="label">Hours aloft</span><span class="v" id="sHours">0</span></div>
-    <div class="stat"><span class="label">Airports</span><span class="v" id="sAirports">0</span></div>
-    <div class="stat"><span class="label">Airlines</span><span class="v" id="sAirlines">0</span></div>
-    <div class="stat"><span class="label">Countries</span><span class="v" id="sCountries">0</span></div>
-  </div>
+      <div class="stats">
+        <div class="stat"><span class="label">Distance</span><span class="v" id="sDist">0</span></div>
+        <div class="stat"><span class="label">Around Earth</span><span class="v" id="sLaps">0</span></div>
+        <div class="stat"><span class="label">Hours aloft</span><span class="v" id="sHours">0</span></div>
+        <div class="stat"><span class="label">Airports</span><span class="v" id="sAirports">0</span></div>
+        <div class="stat"><span class="label">Airlines</span><span class="v" id="sAirlines">0</span></div>
+        <div class="stat"><span class="label">Countries</span><span class="v" id="sCountries">0</span></div>
+      </div>
 
-  <section>
-    <div class="sec-h"><h2>Route chart</h2><div class="row"><span class="label" id="mapNote"></span><select id="apPick" aria-label="Show flights for an airport"></select></div></div>
-    <div class="logtabs" id="mapTabs" role="tablist" aria-label="Routes to show"></div>
-    <div class="panel chart">
-      <canvas id="map" tabindex="0" aria-label="World map of your flight routes. Drag to move, scroll or pinch to zoom, tap an airport to see its flights. Arrow keys pan, plus and minus zoom."></canvas>
-      <div class="zoomctl" role="group" aria-label="Map zoom"><button id="zIn" aria-label="Zoom in">+</button><button id="zOut" aria-label="Zoom out">−</button><button id="zFit" class="txt" aria-label="Zoom to my routes">Fit</button><button id="zWorld" class="txt" aria-label="Show the whole world">World</button></div>
-      <div class="chart-foot"><span class="legend" id="mapLegend"></span><span class="mono" id="mapBounds"></span></div>
-      <div class="ap-panel" id="apPanel" hidden></div>
-    </div>
-  </section>
-
-  <section>
-    <div class="sec-h"><h2>Add flights</h2><button class="btn quiet" id="sampleBtn">Try a sample email</button></div>
-    <div class="panel desk">
-      <div class="inbox" id="inbox" hidden>
-        <div class="inbox-h">
-          <span class="label">Import from your inbox</span>
-          <select id="mailRange" aria-label="How far back to look">
-            <option value="since">New since last import</option>
-            <option value="1">Last year</option>
-            <option value="2" selected>Last 2 years</option>
-            <option value="5">Last 5 years</option>
-            <option value="10">Last 10 years</option>
-          </select>
+      <section>
+        <div class="sec-h"><h2>Route chart</h2><div class="row"><span class="label" id="mapNote"></span><select id="apPick" aria-label="Show flights for an airport"></select></div></div>
+        <div class="logtabs" id="mapTabs" role="tablist" aria-label="Routes to show"></div>
+        <div class="panel chart">
+          <canvas id="map" tabindex="0" aria-label="World map of your flight routes. Drag to move, scroll or pinch to zoom, tap an airport to see its flights. Arrow keys pan, plus and minus zoom."></canvas>
+          <div class="zoomctl" role="group" aria-label="Map zoom"><button id="zIn" aria-label="Zoom in">+</button><button id="zOut" aria-label="Zoom out">−</button><button id="zFit" class="txt" aria-label="Zoom to my routes">Fit</button><button id="zWorld" class="txt" aria-label="Show the whole world">World</button></div>
+          <div class="chart-foot"><span class="legend" id="mapLegend"></span><span class="mono" id="mapBounds"></span></div>
+          <div class="ap-panel" id="apPanel" hidden></div>
         </div>
-        <div class="row">
-          <button class="btn primary" id="scanGmail" hidden>Import from Gmail</button>
-          <button class="btn primary" id="scanOutlook" hidden>Import from Outlook</button>
-          <button class="btn" id="scanStop" type="button" hidden>Stop</button>
-        </div>
-        <p class="msg" id="mailMsg" role="status"></p>
-        <p class="hint">Contrail searches for airline emails and reads them in your browser. Emails aren't saved or sent anywhere; only the flights you add are kept. Works with Outlook.com, Hotmail and Microsoft 365 mail.</p>
-      </div>
-      <div class="or" id="inboxOr" hidden><span>or paste emails yourself</span></div>
-      <label for="emailIn" class="label">Paste booking or check-in emails</label>
-      <textarea id="emailIn" placeholder="Paste one or more airline confirmation emails here. Contrail looks for flight numbers like AS 1294, airport codes like (SFO) → (JFK), and travel dates."></textarea>
-      <div class="row">
-        <button class="btn primary" id="parseBtn">Find flights</button>
-        <span class="btn file">Upload .eml files<input type="file" id="fileIn" multiple accept=".eml,.txt,.html,.htm,message/rfc822,text/*"></span>
-      </div>
-      <p class="hint">Tip: in Gmail, search <span class="mono">"boarding pass" OR "itinerary"</span>, open each email and copy the text. Nothing leaves this page.</p>
-      <p class="msg" id="parseMsg" role="status"></p>
-      <div id="candWrap" hidden>
-        <div class="cands" id="cands"></div>
-        <div class="row" style="margin-top:10px"><button class="btn primary" id="addSel">Add selected</button><button class="btn" id="cancelSel">Discard</button></div>
-      </div>
-      <details>
-        <summary>Add a flight by hand</summary>
-        <form class="manual" id="manual">
-          <label>From<input id="mFrom" maxlength="3" placeholder="SFO" autocomplete="off" required></label>
-          <label>To<input id="mTo" maxlength="3" placeholder="JFK" autocomplete="off" required></label>
-          <label>Date<input id="mDate" type="date" required></label>
-          <label>Flight<input id="mFlight" maxlength="7" placeholder="UA 523" autocomplete="off"></label>
-          <label class="span2">Aircraft (optional)<input id="mAircraft" list="acList" maxlength="40" placeholder="Boeing 737-800" autocomplete="off"></label>
-          <datalist id="acList"></datalist>
-          <div class="row" style="grid-column:1/-1"><button class="btn primary" type="submit">Log flight</button><p class="msg" id="manMsg"></p></div>
-        </form>
-      </details>
-    </div>
-  </section>
+      </section>
 
-  <section>
-    <div class="sec-h"><h2>Records</h2></div>
-    <div class="records" id="records"></div>
-    <div class="years" id="years"></div>
-  </section>
-
-  <section>
-    <div class="sec-h"><h2>Flight log</h2><button class="btn quiet" id="copyCsv">Copy as CSV</button></div>
-    <div class="logtabs" id="logTabs" role="tablist" aria-label="Time period"></div>
-    <p class="logsum" id="logSum"></p>
-    <div class="log" id="log" role="tabpanel"></div>
-    <div class="pager" id="logPager" hidden>
-      <button class="btn" id="pgPrev" type="button">‹ Newer</button>
-      <span class="mono" id="pgInfo"></span>
-      <button class="btn" id="pgNext" type="button">Older ›</button>
-    </div>
-  </section>
-
-  <section>
-    <div class="sec-h"><h2>Sync and backups</h2></div>
-    <div class="cloudbar" id="cloudBar" hidden>
-      <div class="cb-out" id="cbOut">
-        <div class="cb-lead"><b>Keep your log in your own cloud</b><span>Sign in to save it to your account and sync it across devices.</span></div>
-        <div class="cb-btns">
-          <button class="pbtn" id="pb-google" hidden><span>Sign in with Google</span><small>Saves to Google Drive</small></button>
-          <button class="pbtn" id="pb-microsoft" hidden><span>Sign in with Microsoft</span><small>Saves to OneDrive</small></button>
-          <div class="pbtn apple" id="pb-apple" hidden><div id="apple-sign-in-button"></div><small>Saves to iCloud</small></div>
-        </div>
-        <p class="msg err" id="cbErr" role="alert" hidden></p>
-      </div>
-      <div class="cb-in" id="cbIn" hidden>
-        <span class="cb-dot" aria-hidden="true"></span>
-        <div class="cb-who"><b id="cbProv"></b><span id="cbUser"></span></div>
-        <span class="cb-status" id="cbStatus" role="status"></span>
-        <div class="cb-act">
-          <button class="btn" id="cbSync">Sync now</button>
-          <button class="btn primary" id="cbReconnect" hidden>Reconnect</button>
-          <button class="btn quiet" id="cbSignOut">Sign out</button>
-          <div id="apple-sign-out-button" hidden></div>
-        </div>
-      </div>
-    </div>
-    <div class="panel opt">
-      <p class="hint">A backup file is a copy you control: keep it anywhere, and restore it on any device, signed in or not.</p>
-      <div class="row"><button class="btn primary" id="bkSave">Save backup file</button><span class="btn file">Restore from backup<input type="file" id="bkFile" accept=".json,application/json"></span></div>
-      <p class="msg" id="bkMsg" role="status"></p>
-    </div>
-  </section>
-
-  <section id="privacy">
-    <div class="sec-h"><h2>Privacy</h2></div>
-    <div class="panel opt">
-      <ul class="plist">
-        <li><b>What's kept.</b> For each flight: the date, airline, flight number, and departure and arrival airports. No names, booking codes, seats, prices or email text.</li>
-        <li><b>Emails</b> are read in your browser to find flights and are never saved or sent anywhere.</li>
-        <li><b>Photos</b> are resized and re-saved before they're kept, which removes hidden details such as GPS location.</li>
-        <li><b>Where it lives.</b> In this browser, and in your own Google Drive, OneDrive or iCloud if you sign in. Contrail has no server and no account of its own; nobody else can see your log.</li>
-      </ul>
-      <div class="wipe">
-        <h3>Delete all data</h3>
-        <p class="hint">Remove every flight, photo, sign-in and setting Contrail has stored, and optionally your cloud copy.</p>
-        <button class="btn danger" id="wipeOpen" type="button">Delete all data…</button>
-        <form class="wipe-confirm" id="wipeForm" hidden>
-          <p id="wipeWhat"></p>
-          <label class="wipe-cloud" id="wipeCloudRow" hidden><input type="checkbox" id="wipeCloud"> <span id="wipeCloudLabel"></span></label>
-          <label class="wipe-type" for="wipeType">Type DELETE to confirm</label>
-          <input id="wipeType" autocomplete="off" autocapitalize="characters" spellcheck="false">
-          <div class="row">
-            <button class="btn danger solid" id="wipeGo" type="submit" disabled>Delete everything</button>
-            <button class="btn quiet" id="wipeCancel" type="button">Cancel</button>
+      <section>
+        <div class="sec-h"><h2>Add flights</h2><button class="btn quiet" id="sampleBtn">Try a sample email</button></div>
+        <div class="panel desk">
+          <div class="inbox" id="inbox" hidden>
+            <div class="inbox-h">
+              <span class="label">Import from your inbox</span>
+              <select id="mailRange" aria-label="How far back to look">
+                <option value="since">New since last import</option>
+                <option value="1">Last year</option>
+                <option value="2" selected>Last 2 years</option>
+                <option value="5">Last 5 years</option>
+                <option value="10">Last 10 years</option>
+              </select>
+            </div>
+            <div class="row">
+              <button class="btn primary" id="scanGmail" hidden>Import from Gmail</button>
+              <button class="btn primary" id="scanOutlook" hidden>Import from Outlook</button>
+              <button class="btn" id="scanStop" type="button" hidden>Stop</button>
+            </div>
+            <p class="msg" id="mailMsg" role="status"></p>
+            <p class="hint">Contrail searches for airline emails and reads them in your browser. Emails aren't saved or sent anywhere; only the flights you add are kept. Works with Outlook.com, Hotmail and Microsoft 365 mail.</p>
           </div>
-        </form>
-        <p class="msg" id="wipeMsg" role="status"></p>
-      </div>
+          <div class="or" id="inboxOr" hidden><span>or paste emails yourself</span></div>
+          <label for="emailIn" class="label">Paste booking or check-in emails</label>
+          <textarea id="emailIn" placeholder="Paste one or more airline confirmation emails here. Contrail looks for flight numbers like AS 1294, airport codes like (SFO) → (JFK), and travel dates."></textarea>
+          <div class="row">
+            <button class="btn primary" id="parseBtn">Find flights</button>
+            <span class="btn file">Upload .eml files<input type="file" id="fileIn" multiple accept=".eml,.txt,.html,.htm,message/rfc822,text/*"></span>
+          </div>
+          <p class="hint">Tip: in Gmail, search <span class="mono">"boarding pass" OR "itinerary"</span>, open each email and copy the text. Nothing leaves this page.</p>
+          <p class="msg" id="parseMsg" role="status"></p>
+          <div id="candWrap" hidden>
+            <div class="cands" id="cands"></div>
+            <div class="row" style="margin-top:10px"><button class="btn primary" id="addSel">Add selected</button><button class="btn" id="cancelSel">Discard</button></div>
+          </div>
+          <details>
+            <summary>Add a flight by hand</summary>
+            <form class="manual" id="manual">
+              <label>From<input id="mFrom" maxlength="3" placeholder="SFO" autocomplete="off" required></label>
+              <label>To<input id="mTo" maxlength="3" placeholder="JFK" autocomplete="off" required></label>
+              <label>Date<input id="mDate" type="date" required></label>
+              <label>Flight<input id="mFlight" maxlength="7" placeholder="UA 523" autocomplete="off"></label>
+              <label class="span2">Aircraft (optional)<input id="mAircraft" list="acList" maxlength="40" placeholder="Boeing 737-800" autocomplete="off"></label>
+              <datalist id="acList"></datalist>
+              <div class="row" style="grid-column:1/-1"><button class="btn primary" type="submit">Log flight</button><p class="msg" id="manMsg"></p></div>
+            </form>
+          </details>
+        </div>
+      </section>
     </div>
-  </section>
+
+    <div class="view" data-view="records" hidden>
+      <section>
+        <div class="sec-h"><h2>Records</h2></div>
+        <div class="records" id="records"></div>
+        <div class="years" id="years"></div>
+      </section>
+    </div>
+
+    <div class="view" data-view="log" hidden>
+      <section>
+        <div class="sec-h"><h2>Flight log</h2><button class="btn quiet" id="copyCsv">Copy as CSV</button></div>
+        <div class="logtabs" id="logTabs" role="tablist" aria-label="Time period"></div>
+        <p class="logsum" id="logSum"></p>
+        <div class="log" id="log" role="tabpanel"></div>
+        <div class="pager" id="logPager" hidden>
+          <button class="btn" id="pgPrev" type="button">‹ Newer</button>
+          <span class="mono" id="pgInfo"></span>
+          <button class="btn" id="pgNext" type="button">Older ›</button>
+        </div>
+      </section>
+    </div>
+
+    <div class="view" data-view="account" hidden>
+      <section>
+        <div class="sec-h"><h2>Sync and backups</h2></div>
+        <div class="cloudbar" id="cloudBar" hidden>
+          <div class="cb-out" id="cbOut">
+            <div class="cb-lead"><b>Keep your log in your own cloud</b><span>Sign in to save it to your account and sync it across devices.</span></div>
+            <div class="cb-btns">
+              <button class="pbtn" id="pb-google" hidden><span>Sign in with Google</span><small>Saves to Google Drive</small></button>
+              <button class="pbtn" id="pb-microsoft" hidden><span>Sign in with Microsoft</span><small>Saves to OneDrive</small></button>
+              <div class="pbtn apple" id="pb-apple" hidden><div id="apple-sign-in-button"></div><small>Saves to iCloud</small></div>
+            </div>
+            <p class="msg err" id="cbErr" role="alert" hidden></p>
+          </div>
+          <div class="cb-in" id="cbIn" hidden>
+            <span class="cb-dot" aria-hidden="true"></span>
+            <div class="cb-who"><b id="cbProv"></b><span id="cbUser"></span></div>
+            <span class="cb-status" id="cbStatus" role="status"></span>
+            <div class="cb-act">
+              <button class="btn" id="cbSync">Sync now</button>
+              <button class="btn primary" id="cbReconnect" hidden>Reconnect</button>
+              <button class="btn quiet" id="cbSignOut">Sign out</button>
+              <div id="apple-sign-out-button" hidden></div>
+            </div>
+          </div>
+        </div>
+        <div class="panel opt">
+          <p class="hint">A backup file is a copy you control: keep it anywhere, and restore it on any device, signed in or not.</p>
+          <div class="row"><button class="btn primary" id="bkSave">Save backup file</button><span class="btn file">Restore from backup<input type="file" id="bkFile" accept=".json,application/json"></span></div>
+          <p class="msg" id="bkMsg" role="status"></p>
+        </div>
+      </section>
+
+      <section id="privacy">
+        <div class="sec-h"><h2>Privacy</h2></div>
+        <div class="panel opt">
+          <ul class="plist">
+            <li><b>What's kept.</b> For each flight: the date, airline, flight number, and departure and arrival airports. No names, booking codes, seats, prices or email text.</li>
+            <li><b>Emails</b> are read in your browser to find flights and are never saved or sent anywhere.</li>
+            <li><b>Photos</b> are resized and re-saved before they're kept, which removes hidden details such as GPS location.</li>
+            <li><b>Where it lives.</b> In this browser, and in your own Google Drive, OneDrive or iCloud if you sign in. Contrail has no server and no account of its own; nobody else can see your log.</li>
+          </ul>
+          <div class="wipe">
+            <h3>Delete all data</h3>
+            <p class="hint">Remove every flight, photo, sign-in and setting Contrail has stored, and optionally your cloud copy.</p>
+            <button class="btn danger" id="wipeOpen" type="button">Delete all data…</button>
+            <form class="wipe-confirm" id="wipeForm" hidden>
+              <p id="wipeWhat"></p>
+              <label class="wipe-cloud" id="wipeCloudRow" hidden><input type="checkbox" id="wipeCloud"> <span id="wipeCloudLabel"></span></label>
+              <label class="wipe-type" for="wipeType">Type DELETE to confirm</label>
+              <input id="wipeType" autocomplete="off" autocapitalize="characters" spellcheck="false">
+              <div class="row">
+                <button class="btn danger solid" id="wipeGo" type="submit" disabled>Delete everything</button>
+                <button class="btn quiet" id="wipeCancel" type="button">Cancel</button>
+              </div>
+            </form>
+            <p class="msg" id="wipeMsg" role="status"></p>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
 
   <footer><span id="footStore">Contrail keeps your log in this browser and, once you sign in, in your own cloud account.</span> Distances are great-circle, airport to airport; hours aloft are estimated at 800 km/h plus 30 minutes per flight. The parser knows about 230 airports and 80 airlines. Coastlines from Natural Earth.</footer>
 </div>
+  <nav class="tabnav" aria-label="Sections">
+    <a class="tab" href="#overview" data-view="home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17c3-9 15-9 18 0"/><circle cx="3.5" cy="17" r="1.6"/><circle cx="20.5" cy="17" r="1.6"/></svg><span>Overview</span></a>
+    <a class="tab" href="#records" data-view="records"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4M12 13v4M8.5 20h7"/></svg><span>Records</span></a>
+    <a class="tab" href="#log" data-view="log"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg><span>Flight log</span></a>
+    <a class="tab" href="#account" data-view="account"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8.5" r="3.5"/><path d="M5 20c1.2-3.6 4-5.5 7-5.5s5.8 1.9 7 5.5"/></svg><span>Account</span></a>
+  </nav>
+</div>
 
-<script src="land.js?v=20261031f"></script>
-<script src="app.js?v=20261031f"></script>
-<script src="config.js?v=20261031f"></script>
-<script src="common.js?v=20261031f"></script>
-<script src="msauth.js?v=20261031f"></script>
-<script src="google.js?v=20261031f"></script>
-<script src="microsoft.js?v=20261031f"></script>
-<script src="apple.js?v=20261031f"></script>
-<script src="sync.js?v=20261031f"></script>
-<script src="mail.js?v=20261031f"></script>
-<script src="photos.js?v=20261031f"></script>
-<script src="privacy.js?v=20261031f"></script>
+<script src="land.js?v=20261031g"></script>
+<script src="app.js?v=20261031g"></script>
+<script src="config.js?v=20261031g"></script>
+<script src="common.js?v=20261031g"></script>
+<script src="msauth.js?v=20261031g"></script>
+<script src="google.js?v=20261031g"></script>
+<script src="microsoft.js?v=20261031g"></script>
+<script src="apple.js?v=20261031g"></script>
+<script src="sync.js?v=20261031g"></script>
+<script src="mail.js?v=20261031g"></script>
+<script src="photos.js?v=20261031g"></script>
+<script src="privacy.js?v=20261031g"></script>
+<script>
+// Tabs: Overview, Records, Flight log, Account. The open tab is in the address (#log etc.) so it can be bookmarked.
+(function(){
+  const views=[...document.querySelectorAll(".view")], tabs=[...document.querySelectorAll(".tabnav .tab")];
+  const byHash={overview:"home",records:"records",log:"log",account:"account"};
+  function show(){
+    const v=byHash[location.hash.slice(1)]||"home";
+    views.forEach(el=>{el.hidden=el.dataset.view!==v;});
+    tabs.forEach(t=>{if(t.dataset.view===v)t.setAttribute("aria-current","page");else t.removeAttribute("aria-current");});
+    if(v==="home")dispatchEvent(new Event("resize")); // the route chart sizes itself when it becomes visible
+  }
+  addEventListener("hashchange",()=>{show();scrollTo(0,0);});
+  show();
+})();
+</script>
 <script>
 // Installable app: offline support plus an "Install app" button where the browser offers one (Chrome on Android).
 (function(){
