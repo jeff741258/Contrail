@@ -126,7 +126,14 @@
 
   <section>
     <div class="sec-h"><h2>Flight log</h2><button class="btn quiet" id="copyCsv">Copy as CSV</button></div>
-    <div class="log" id="log"></div>
+    <div class="logtabs" id="logTabs" role="tablist" aria-label="Time period"></div>
+    <p class="logsum" id="logSum"></p>
+    <div class="log" id="log" role="tabpanel"></div>
+    <div class="pager" id="logPager" hidden>
+      <button class="btn" id="pgPrev" type="button">‹ Newer</button>
+      <span class="mono" id="pgInfo"></span>
+      <button class="btn" id="pgNext" type="button">Older ›</button>
+    </div>
   </section>
 
   <section>

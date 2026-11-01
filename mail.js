@@ -39,7 +39,7 @@
     async function run(){
       while(next < items.length && !job.stopped){
         const item = items[next++];
-        try{ await worker(item); }catch(e){ if(e && e.code === "auth") throw e; job.failed++; }
+        try{ await worker(item); }catch(e){ if(e && e.code === "auth") throw e; if(!job.stopped) job.failed++; }
         onEach(++done);
       }
     }
@@ -75,17 +75,40 @@
     });
   }
 
+  // Gmail allows each user 6,000 "units" per minute, and reading one email costs 5, so at most
+  // ~1,200 emails a minute across every app and tab. Contrail paces itself under that (about 13
+  // emails a second, leaving room for searches and other apps). If Gmail still says to slow down,
+  // every request pauses together until the minute rolls over instead of giving up.
+  const GMAIL_GAP_MS = 75;
+  let nextSlot = 0, pausedUntil = 0;
+  const gmailStatus = { onPause: null, stopped: false };
+  async function waitTurn(){
+    for(;;){
+      if(gmailStatus.stopped) throw U.err("stopped", "Stopped.");
+      const now = Date.now();
+      if(pausedUntil > now){ await sleep(Math.min(500, pausedUntil - now)); continue; } // short naps so Stop is instant
+      if(nextSlot > now){ const wait = nextSlot - now; nextSlot += GMAIL_GAP_MS; await sleep(wait); return; }
+      nextSlot = now + GMAIL_GAP_MS; return;
+    }
+  }
+
   async function gapi(path, tries = 0){
+    await waitTurn();
     const r = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/" + path, { headers: { Authorization: "Bearer " + gmail.token } });
     if(r.status === 401){ gmail.token = null; throw U.err("auth", "Gmail access expired. Start the import again."); }
     let rateLimited = r.status === 429 || r.status >= 500;
     if(r.status === 403){
-      // Gmail answers 403 (not 429) for "too many concurrent requests" and per-user rate limits.
+      // Gmail answers 403 (not 429) for per-minute quotas and "too many concurrent requests".
       const j = await r.clone().json().catch(()=>({}));
       const reason = ((j.error && j.error.errors && j.error.errors[0] && j.error.errors[0].reason) || "") + " " + ((j.error && j.error.message) || "");
       rateLimited = /rateLimit|concurrent|quota/i.test(reason);
     }
-    if(rateLimited && tries < 5){ await sleep(600 * Math.pow(2, tries) + Math.random() * 400); return gapi(path, tries + 1); }
+    if(rateLimited && tries < 8){
+      // Back off for everyone: 5s, 10s, 20s… capped at a minute, which always clears a per-minute quota.
+      const wait = Math.min(60000, 5000 * Math.pow(2, tries)) + Math.random() * 1000;
+      if(Date.now() + wait > pausedUntil){ pausedUntil = Date.now() + wait; if(gmailStatus.onPause) gmailStatus.onPause(wait); }
+      return gapi(path, tries + 1);
+    }
     if(!r.ok) throw U.err("http", "Gmail returned an error (" + r.status + ").");
     return r.json();
   }
@@ -109,6 +132,7 @@
 
   // Reads matching emails and hands each one to job.consume(). Returns how many were read.
   async function scanGmail(after, job, progress){
+    gmailStatus.stopped = false; pausedUntil = 0;
     const q = "(flight OR flights OR airline) {" + TERMS.map(t => t.includes(" ") ? '"' + t + '"' : t).join(" ") + "}" +
               " after:" + after.getFullYear() + "/" + (after.getMonth() + 1) + "/" + after.getDate() +
               " -in:spam -in:trash -category:promotions -category:social"; // skip fare sales and newsletters
@@ -122,13 +146,20 @@
     }while(page && ids.length < MAX_EMAILS && !job.stopped);
     const list = ids.slice(0, MAX_EMAILS);
     job.capped = !!page || ids.length > MAX_EMAILS;
-    let read = 0;
+    let read = 0, pauseNote = "", lastN = 0;
+    const show = () => progress("Reading Gmail… " + lastN + " of " + list.length + " emails · " + job.found.length + " flights so far" + pauseNote);
+    gmailStatus.onPause = wait => {
+      pauseNote = " · Gmail asked Contrail to slow down, resuming in " + Math.ceil(wait / 1000) + "s";
+      show();
+      setTimeout(() => { pauseNote = ""; }, wait);
+    };
     await pool(list, async id => {
       const m = await gapi("messages/" + id + "?format=full");
       const subject = ((m.payload && m.payload.headers) || []).find(h => h.name.toLowerCase() === "subject");
       job.consume({ date: new Date(Number(m.internalDate)), subject: subject ? subject.value : "", text: gmailText(m.payload) });
       read++;
-    }, job, n => progress("Reading Gmail… " + n + " of " + list.length + " emails · " + job.found.length + " flights so far"));
+    }, job, n => { lastN = n; show(); });
+    gmailStatus.onPause = null;
     return read;
   }
 
@@ -175,6 +206,7 @@
   $("scanStop").addEventListener("click", () => {
     if(!job) return;
     job.stopped = true;
+    gmailStatus.stopped = true;
     $("scanStop").disabled = true;
     say("Stopping… adding the flights found so far.");
   });
@@ -242,6 +274,7 @@
         : "");
     }catch(e){
       if(e && e.code === "cancelled") say("");
+      else if(e && e.code === "stopped") say("Stopped before any emails were read.");
       else say((e && e.message) || "The import stopped. Try again.", true);
     }finally{
       job = null;

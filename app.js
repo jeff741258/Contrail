@@ -190,10 +190,40 @@ function renderRecords(list,km){
   const ys=Object.keys(yrs).sort(),mx=Math.max(...Object.values(yrs));
   Y.innerHTML='<span class="label">Flights per year</span>'+ys.map(y=>`<div class="yr"><span>${y}</span><span class="bar"><i style="width:${(yrs[y]/mx*100).toFixed(1)}%"></i></span><b>${yrs[y]}</b></div>`).join("");
 }
+// Flight log: tabs for All time, YTD and each year, 10 flights per page (newest first).
+const PAGE=10,TKEY="contrail.logTab";
+let logTab="all",logPage=0,logList=[];
+try{logTab=localStorage.getItem(TKEY)||"all";}catch(e){}
+function logPeriods(list){
+  const today=new Date().toISOString().slice(0,10),thisYear=today.slice(0,4);
+  const years=[...new Set(list.map(f=>f.date.slice(0,4)))].sort().reverse();
+  const tabs=[{id:"all",label:"All time",test:()=>true},
+    {id:"ytd",label:"YTD",test:f=>f.date.slice(0,4)===thisYear&&f.date<=today}];
+  years.forEach(y=>tabs.push({id:y,label:y,test:f=>f.date.slice(0,4)===y}));
+  return tabs;
+}
 function renderLog(list){
-  const L=$("log");
-  if(!list.length){L.innerHTML='<div class="empty">No flights yet. Paste a confirmation email above to start your log.</div>';return;}
-  L.innerHTML=list.map(f=>{
+  logList=list;
+  const L=$("log"),T=$("logTabs"),S=$("logSum"),P=$("logPager");
+  if(!list.length){T.innerHTML="";S.textContent="";P.hidden=true;
+    L.innerHTML='<div class="empty">No flights yet. Paste a confirmation email above to start your log.</div>';return;}
+  const tabs=logPeriods(list);
+  if(!tabs.some(t=>t.id===logTab))logTab="all";
+  const tab=tabs.find(t=>t.id===logTab);
+  T.innerHTML=tabs.map(t=>{const n=list.filter(t.test).length;
+    return `<button type="button" role="tab" class="ltab" data-tab="${t.id}" aria-selected="${t.id===logTab}">${t.label}<span>${n}</span></button>`;}).join("");
+  const shown=list.filter(tab.test);
+  const km=shown.reduce((s,f)=>s+distKm(f.from,f.to),0);
+  const label=tab.id==="all"?"All time":tab.id==="ytd"?"This year so far":tab.label;
+  S.textContent=`${label}: ${shown.length} ${shown.length===1?"flight":"flights"} · ${fmtDist(km)} ${unit}`+(shown.length?` · ${new Set(shown.flatMap(f=>[f.from,f.to])).size} airports`:"");
+  const pages=Math.max(1,Math.ceil(shown.length/PAGE));
+  logPage=Math.min(logPage,pages-1);
+  const page=shown.slice(logPage*PAGE,logPage*PAGE+PAGE);
+  P.hidden=shown.length<=PAGE;
+  $("pgInfo").textContent=shown.length?`${logPage*PAGE+1}–${logPage*PAGE+page.length} of ${shown.length}`:"";
+  $("pgPrev").disabled=logPage===0;$("pgNext").disabled=logPage>=pages-1;
+  if(!shown.length){L.innerHTML='<div class="empty">No flights in this period.</div>';return;}
+  L.innerHTML=page.map(f=>{
     const a=AP[f.from],b=AP[f.to];
     const fl=f.airline?`${esc(AL[f.airline]||f.airline)} ${f.airline} ${f.num}`:"Flight";
     return `<div class="leg"><span class="d">${f.date}</span><span class="r"><b>${f.from} → ${f.to}${f.example?'<span class="tag">Example</span>':""}</b><span>${fl} · ${esc(a.city)} to ${esc(b.city)}</span></span><span class="km">${fmtDist(distKm(f.from,f.to))} ${unit}</span><button class="x" data-id="${f.id}" aria-label="Remove ${f.from} to ${f.to} on ${f.date}">×</button></div>`;}).join("");
@@ -412,6 +442,11 @@ $("log").addEventListener("click",e=>{const b=e.target.closest(".x");if(!b)retur
   const gone=flights.find(f=>f.id===b.dataset.id);
   if(gone&&!gone.example){const k=keyOf(gone);removed=removed.filter(r=>r.k!==k);removed.push({k,at:Date.now()});}
   flights=flights.filter(f=>f.id!==b.dataset.id);save();render();});
+$("logTabs").addEventListener("click",e=>{const b=e.target.closest(".ltab");if(!b)return;
+  logTab=b.dataset.tab;logPage=0;try{localStorage.setItem(TKEY,logTab);}catch(_){}renderLog(logList);
+  const sel=$("logTabs").querySelector('[aria-selected="true"]');if(sel&&sel.focus)sel.focus();});
+$("pgPrev").addEventListener("click",()=>{if(logPage>0){logPage--;renderLog(logList);}});
+$("pgNext").addEventListener("click",()=>{logPage++;renderLog(logList);});
 $("u-mi").addEventListener("click",()=>{unit="mi";try{localStorage.setItem(UKEY,unit)}catch(e){}render();showCandidates(candidates);});
 $("u-km").addEventListener("click",()=>{unit="km";try{localStorage.setItem(UKEY,unit)}catch(e){}render();showCandidates(candidates);});
 $("copyCsv").addEventListener("click",()=>{
