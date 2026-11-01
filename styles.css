@@ -387,3 +387,7 @@ a.yr:hover b,a.yr:hover span:first-child{color:var(--accent)}
 /* export */
 .wipe.export{border-top:1px solid var(--line)}
 .wipe.export .row{flex-wrap:wrap}
+
+/* the name at the top goes to Overview */
+a.brand{color:var(--ink);text-decoration:none;border-radius:4px}
+a.brand:hover{color:var(--accent)}
