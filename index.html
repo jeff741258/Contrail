@@ -19,7 +19,7 @@
     </div>
   </header>
 
-  <div class="cloudbar" id="cloudBar">
+  <div class="cloudbar" id="cloudBar" hidden>
     <div class="cb-out" id="cbOut">
       <div class="cb-lead"><b>Keep your log in your own cloud</b><span>Sign in to save it to your account and sync it across devices.</span></div>
       <div class="cb-btns">
@@ -28,7 +28,6 @@
         <div class="pbtn apple" id="pb-apple" hidden><div id="apple-sign-in-button"></div><small>Saves to iCloud</small></div>
       </div>
       <p class="msg err" id="cbErr" role="alert" hidden></p>
-      <p class="hint" id="cbSetup" hidden>Cloud sign-in isn't set up yet. Add your app IDs to <code>config.js</code>; README.md walks through it.</p>
     </div>
     <div class="cb-in" id="cbIn" hidden>
       <span class="cb-dot" aria-hidden="true"></span>

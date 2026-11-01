@@ -54,11 +54,12 @@
     if(!remote || fingerprint(merged) !== fingerprint(remote)) await p.save(merged);
   }
 
-  function sync(){
+  // quiet: a background check. The status keeps its "Synced at" line instead of flashing "Syncing…".
+  function sync(quiet){
     if(!S.active || S.state === "reconnect") return Promise.resolve();
-    if(running){ again = true; return running; }
+    if(running){ if(!quiet) again = true; return running; }
     clearTimeout(timer);
-    set("syncing");
+    if(!quiet) set("syncing");
     running = (async ()=>{
       try{
         try{ await syncOnce(); }
@@ -107,7 +108,8 @@
     $("cbOut").hidden = signedIn;
     $("cbIn").hidden = !signedIn;
     ORDER.forEach(id => { const el = $("pb-" + id); if(el) el.hidden = signedIn || !configured.includes(id); });
-    $("cbSetup").hidden = configured.length > 0;
+    // With no provider set up in config.js, visitors see no sign-in box at all.
+    $("cloudBar").hidden = configured.length === 0;
     $("cbErr").hidden = signedIn || !S.message;
     $("cbErr").textContent = signedIn ? "" : S.message;
     $("footStore").textContent = signedIn
@@ -158,10 +160,19 @@
     S.active = null; S.user = null; remember(null); set("off");
   });
 
-  // Pick up changes from other devices when the user comes back to the tab.
+  // Pick up changes from other devices: right away when the user comes back to the tab,
+  // and every minute (config: sync.intervalSeconds) while the app is open and on screen.
+  // Hidden tabs don't check, so a backgrounded app costs no requests.
+  const INTERVAL = Math.max(15, Number(CONFIG.sync && CONFIG.sync.intervalSeconds) || 60) * 1000;
   document.addEventListener("visibilitychange", () => {
-    if(document.visibilityState === "visible" && S.active && Date.now() - lastPull > 30000) sync();
+    if(document.visibilityState === "visible" && S.active && Date.now() - lastPull > 30000) sync(true);
   });
+  setInterval(() => {
+    if(document.visibilityState !== "visible" || !S.active) return;
+    if(S.state !== "ok" && S.state !== "error") return; // signed out, waiting to reconnect, or a sync is already queued
+    if(Date.now() - lastPull < INTERVAL - 1000) return;
+    sync(true);
+  }, Math.min(INTERVAL, 15000));
 
   window.ContrailSync = {
     merge, fingerprint, state: S,
