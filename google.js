@@ -59,9 +59,10 @@
         hooks.onSignedIn("google", user, { auto: true });
         return;
       }
-      // Otherwise Google needs a click before it hands out a new token.
+      // Otherwise Google needs a click before it hands out a new token. Only offer "Reconnect"
+      // to someone who really signed in before; anyone else just sees the sign-in button.
       user = U.readJSON(localStorage, USER_KEY);
-      hooks.onNeedsReconnect("google", user);
+      if(user) hooks.onNeedsReconnect("google", user);
     },
 
     // Must be called straight from a click handler: the popup opens before the first await.

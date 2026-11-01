@@ -135,11 +135,11 @@
     $("apple-sign-out-button").hidden = !p.usesOwnButtons;
   }
 
+  // The provider is only remembered once sign-in actually succeeds (hooks.onSignedIn),
+  // so an abandoned popup never leaves the bar saying "session expired".
   function startSignIn(id){
     S.message = "";
-    remember(id);
     PROVIDERS[id].signIn().catch(e => {
-      if(remembered() === id && !S.active) remember(null);
       set(S.active ? S.state : "off", e && e.code === "cancelled" ? "" : ((e && e.message) || "Sign-in failed."));
     });
   }
@@ -188,6 +188,7 @@
   render();
   configured.forEach(id => {
     PROVIDERS[id].init(CONFIG[id], hooks, { remembered: remembered() === id })
+      .then(() => { if(remembered() === id && S.active !== id) remember(null); }) // nothing to restore
       .catch(e => {
         console.warn("Contrail: " + id + " didn't start", e);
         if(remembered() === id) remember(null);
