@@ -353,13 +353,15 @@ function renderRecords(list,km){
     cell("Top aircraft",ta?esc(ta[0]):"—",ta?`${ta[1]} ${ta[1]===1?"flight":"flights"}`:"Add aircraft in the flight log",ta?{ac:ta[0]}:null)+
     cell("Aircraft types",String(nAc),nAc?`on ${Object.values(ac).reduce((a,b)=>a+b,0)} of ${list.length} flights`:"None recorded yet",nAc?{ac:"*"}:null);
   const yrs={};list.forEach(f=>{const y=f.date.slice(0,4);yrs[y]=(yrs[y]||0)+1;});
-  const ys=Object.keys(yrs).sort(),mx=Math.max(...Object.values(yrs));
+  const ys=Object.keys(yrs).sort().reverse(),mx=Math.max(...Object.values(yrs));
   Y.innerHTML='<span class="label">Flights per year</span>'+ys.map(y=>`<a class="yr" href="#log" data-year="${y}" aria-label="${yrs[y]} flights in ${y}: show them in the flight log"><span>${y}</span><span class="bar"><i style="width:${(yrs[y]/mx*100).toFixed(1)}%"></i></span><b>${yrs[y]}</b></a>`).join("");
 }
 // Flight log: tabs for All time, YTD and each year, 10 flights per page (newest first).
 const PAGE=10,TKEY="contrail.logTab";
-let logTab="all",logPage=0,logList=[];
-try{logTab=localStorage.getItem(TKEY)||"all";}catch(e){}
+let logTab="all",logPage=0,logList=[],logOld=false;
+try{logTab=localStorage.getItem(TKEY)||"all";logOld=localStorage.getItem("contrail.logSort")==="old";}catch(e){}
+// sort button: newest first (default) or oldest first, remembered on this device
+function showSort(){const b=$("lsort");b.textContent=logOld?"Oldest first":"Newest first";b.setAttribute("aria-label","Sort: "+b.textContent+". Tap to switch.");$("pgPrev").textContent=logOld?"‹ Older":"‹ Newer";$("pgNext").textContent=logOld?"Newer ›":"Older ›";}
 function logPeriods(list){
   const today=new Date().toISOString().slice(0,10),thisYear=today.slice(0,4);
   const years=[...new Set(list.map(f=>f.date.slice(0,4)))].sort().reverse();
@@ -414,7 +416,7 @@ function renderLog(list){
   const tab=tabs.find(t=>t.id===logTab);
   T.innerHTML=tabs.map(t=>{const n=list.filter(t.test).length;
     return `<button type="button" role="tab" class="ltab" data-tab="${t.id}" aria-selected="${t.id===logTab}">${t.label}<span>${n}</span></button>`;}).join("");
-  const shown=list.filter(tab.test);
+  const shown=list.filter(tab.test);if(logOld)shown.reverse();
   const km=shown.reduce((s,f)=>s+distKm(f.from,f.to),0);
   const label=tab.id==="all"?"All time":tab.id==="ytd"?"This year so far":tab.label;
   const of=lfActive()?` of ${all.filter(tab.test).length}`:"";
@@ -730,6 +732,8 @@ if(matchMedia("(min-width: 980px)").matches){$("lfPanel").hidden=false;$("lfTogg
 $("logTabs").addEventListener("click",e=>{const b=e.target.closest(".ltab");if(!b)return;
   logTab=b.dataset.tab;logPage=0;try{localStorage.setItem(TKEY,logTab);}catch(_){}renderLog(logList);
   const sel=$("logTabs").querySelector('[aria-selected="true"]');if(sel&&sel.focus)sel.focus();});
+showSort();
+$("lsort").addEventListener("click",()=>{logOld=!logOld;try{localStorage.setItem("contrail.logSort",logOld?"old":"new");}catch(_){}logPage=0;showSort();renderLog(logList);});
 $("pgPrev").addEventListener("click",()=>{if(logPage>0){logPage--;renderLog(logList);}});
 $("pgNext").addEventListener("click",()=>{logPage++;renderLog(logList);});
 $("u-mi").addEventListener("click",()=>{unit="mi";try{localStorage.setItem(UKEY,unit)}catch(e){}render();showCandidates(candidates);});

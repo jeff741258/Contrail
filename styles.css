@@ -394,3 +394,5 @@ a.brand:hover{color:var(--accent)}
 
 .ap-all{align-self:flex-start;color:var(--accent);font-weight:600;font-size:14px;text-decoration:none}
 .ap-all:hover{text-decoration:underline}
+#lsort{white-space:nowrap}
+@media (max-width:520px){.lsearch{flex-wrap:wrap}#lq{flex-basis:100%}}
