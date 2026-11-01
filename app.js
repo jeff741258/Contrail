@@ -49,6 +49,32 @@ function load(){
   try{const u=localStorage.getItem(UKEY); if(u==="km"||u==="mi")unit=u;}catch(e){}
   flights.forEach(f=>{if(!f.id)f.id=uid();if(typeof f.added!=="number")f.added=0;});
   if(!flights.length) flights=EXAMPLES.map(f=>Object.assign({},f,{id:uid(),example:true}));
+  if(dedupeTrips())saveLocal();
+}
+// ---------- one trip per route per day ----------
+// Codeshares (one plane sold as e.g. NH 116 and UA 32) and repeat emails produce the same trip under
+// different flight numbers. Flights with the same route on the same day are merged into one. The copy
+// kept is the most detailed (aircraft, photos, your edits); its aircraft and photos are carried over.
+const tripKey=f=>f.from+"|"+f.to+"|"+f.date;
+function richness(f){const k=keyOf(f);return (f.ac?4:0)+(photos.some(p=>p.k===k)?2:0)+(f.edited?1:0)+(f.airline&&f.num?1:0);}
+function dedupeTrips(){
+  const groups=new Map();
+  flights.filter(f=>!f.example).forEach(f=>{const g=groups.get(tripKey(f));g?g.push(f):groups.set(tripKey(f),[f]);});
+  let merged=0;const now=Date.now();
+  groups.forEach(g=>{
+    if(g.length<2)return;
+    // deterministic choice so every device keeps the same copy
+    g.sort((a,b)=>richness(b)-richness(a)||keyOf(a).localeCompare(keyOf(b)));
+    const keep=g[0],kk=keyOf(keep);
+    g.slice(1).forEach(d=>{
+      const dk=keyOf(d);
+      if(!keep.ac&&d.ac){keep.ac=d.ac;keep.edited=Math.max(keep.edited||0,now);}
+      photos.forEach(p=>{if(p.k===dk)p.k=kk;});
+      removed=removed.filter(r=>r.k!==dk);removed.push({k:dk,at:now});
+      flights=flights.filter(f=>f!==d);merged++;
+    });
+  });
+  return merged;
 }
 function saveLocal(){
   try{localStorage.setItem(KEY,JSON.stringify(flights.filter(f=>!f.example).length?flights:[]));}catch(e){}
@@ -586,7 +612,8 @@ Total charged to card ending 0000.`;
 function showCandidates(list){
   const have=new Set(real().map(keyOf));
   const today=new Date().toISOString().slice(0,10);
-  candidates=list.map(f=>Object.assign({},f,{dup:have.has(keyOf(f)),upcoming:f.date>today}));
+  const trips=new Set(real().map(tripKey));
+  candidates=list.map(f=>Object.assign({},f,{dup:have.has(keyOf(f))||trips.has(tripKey(f)),upcoming:f.date>today}));
   const W=$("candWrap"),C=$("cands");
   if(!candidates.length){W.hidden=true;return;}
   C.innerHTML=candidates.map((f,i)=>`<label class="cand"><input type="checkbox" id="cand${i}" data-i="${i}" ${f.dup||f.upcoming?"":"checked"}><span class="cand-main"><span><b class="mono">${f.from} → ${f.to}</b> · ${f.airline?f.airline+" "+f.num+" · ":""}${fmtDate(f.date)}${f.ac?" · "+esc(f.ac):""}</span>${f.src?`<span class="src">${esc(f.src)}</span>`:""}</span><span class="dup">${f.dup?"Already logged":f.upcoming?"Upcoming":fmtDist(distKm(f.from,f.to))+" "+unit}</span></label>`).join("");
@@ -612,9 +639,10 @@ function addFlightsIds(arr){
   if(!arr.length)return [];
   if(flights.every(f=>f.example))flights=[];
   const have=new Set(flights.map(keyOf));let n=0;
+  const trips=new Set(flights.filter(f=>!f.example).map(tripKey));
   const now=Date.now();
   const ids=[];
-  arr.forEach(f=>{const k=keyOf(f);if(have.has(k))return;have.add(k);const id=uid();ids.push(id);flights.push({id,airline:f.airline||"",num:f.num||"",from:f.from,to:f.to,date:f.date,ac:f.ac||"",added:now});n++;});
+  arr.forEach(f=>{const k=keyOf(f);if(have.has(k)||trips.has(tripKey(f)))return;have.add(k);trips.add(tripKey(f));const id=uid();ids.push(id);flights.push({id,airline:f.airline||"",num:f.num||"",from:f.from,to:f.to,date:f.date,ac:f.ac||"",added:now});n++;});
   if(ids.length){save();render();}
   return ids;
 }
@@ -782,6 +810,7 @@ function setDoc(doc){
   removed=Array.isArray(doc.removed)?doc.removed.filter(r=>r&&typeof r.k==="string"&&typeof r.at==="number"):[];
   flights=list.length?list:EXAMPLES.map(f=>Object.assign({},f,{id:uid(),example:true}));
   photos=Array.isArray(doc.photos)?doc.photos.filter(p=>p&&typeof p.id==="string"&&typeof p.k==="string").map(p=>({id:p.id,k:p.k,added:Number(p.added)||0})):photos;
+  dedupeTrips();
   saveLocal();render();
   if(window.ContrailPhotos)window.ContrailPhotos.prune(photos.map(p=>p.id));
 }
@@ -819,17 +848,23 @@ function reviewCandidates(list,message){
 }
 // A flight found without a flight number is dropped when the same route on the same day
 // also appears with one (in this batch or already in the log).
+// One entry per route and day within a batch of found flights (codeshares, repeat emails),
+// keeping the most detailed: with a flight number, then with an aircraft.
 function dropNumberless(list){
-  const numbered=new Set(real().concat(list).filter(f=>f.airline&&f.num).map(f=>f.from+f.to+f.date));
-  return list.filter(f=>(f.airline&&f.num)||!numbered.has(f.from+f.to+f.date));
+  const best=new Map();
+  list.forEach(f=>{const t=tripKey(f),b=best.get(t);
+    const score=x=>(x.airline&&x.num?2:0)+(x.ac?1:0);
+    if(!b)best.set(t,f);
+    else{const keep=score(f)>score(b)?f:b,other=keep===f?b:f;if(!keep.ac&&other.ac)keep.ac=other.ac;best.set(t,keep);}});
+  return list.filter(f=>best.get(tripKey(f))===f);
 }
 // Adds imported flights straight to the log. Returns {ids, already} so the import can offer Undo.
 function addImported(list){
-  const have=new Set(real().map(keyOf));
-  const fresh=list.filter(f=>!have.has(keyOf(f)));
-  // Flights already logged without an aircraft get it from the email.
+  const have=new Set(real().map(keyOf)),trips=new Map(real().map(f=>[tripKey(f),f]));
+  const fresh=list.filter(f=>!have.has(keyOf(f))&&!trips.has(tripKey(f)));
+  // Flights already logged without an aircraft get it from the email (matched by flight or by route and day).
   let filled=0;const byKey=new Map(real().map(f=>[keyOf(f),f]));const now=Date.now();
-  list.forEach(f=>{const g=byKey.get(keyOf(f));if(g&&!g.ac&&f.ac){g.ac=f.ac;g.edited=now;filled++;}});
+  list.forEach(f=>{const g=byKey.get(keyOf(f))||trips.get(tripKey(f));if(g&&!g.ac&&f.ac){g.ac=f.ac;g.edited=now;filled++;}});
   const ids=addFlightsIds(fresh);
   if(filled&&!ids.length){save();render();}
   return {ids,already:list.length-fresh.length,filled};

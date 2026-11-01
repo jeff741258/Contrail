@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="styles.css?v=20261031n">
+<link rel="stylesheet" href="styles.css?v=20261031p">
 </head>
 <body>
 <div class="shell">
@@ -123,6 +123,7 @@
           <input type="search" id="lq" placeholder="Search city, airport, airline, flight or aircraft" aria-label="Search flights" autocomplete="off">
           <button class="btn" id="lfToggle" type="button" aria-expanded="false" aria-controls="lfPanel">Filters <span class="lfn" id="lfCount" hidden></span></button>
         </div>
+        <div class="lfroute" id="lfRoute" hidden><span>Route: <b id="lfRouteText"></b></span><button type="button" class="lfx" id="lfRouteX" aria-label="Remove route filter">×</button></div>
         <div class="lfpanel" id="lfPanel" hidden>
           <label>From<input type="date" id="lfFrom"></label>
           <label>To<input type="date" id="lfTo"></label>
@@ -230,20 +231,20 @@
   </nav>
 </div>
 
-<script src="airports.js?v=20261031n"></script>
-<script src="land.js?v=20261031n"></script>
-<script src="app.js?v=20261031n"></script>
-<script src="config.js?v=20261031n"></script>
-<script src="common.js?v=20261031n"></script>
-<script src="msauth.js?v=20261031n"></script>
-<script src="google.js?v=20261031n"></script>
-<script src="microsoft.js?v=20261031n"></script>
-<script src="apple.js?v=20261031n"></script>
-<script src="sync.js?v=20261031n"></script>
-<script src="mail.js?v=20261031n"></script>
-<script src="photos.js?v=20261031n"></script>
-<script src="privacy.js?v=20261031n"></script>
-<script src="space.js?v=20261031n"></script>
+<script src="airports.js?v=20261031p"></script>
+<script src="land.js?v=20261031p"></script>
+<script src="app.js?v=20261031p"></script>
+<script src="config.js?v=20261031p"></script>
+<script src="common.js?v=20261031p"></script>
+<script src="msauth.js?v=20261031p"></script>
+<script src="google.js?v=20261031p"></script>
+<script src="microsoft.js?v=20261031p"></script>
+<script src="apple.js?v=20261031p"></script>
+<script src="sync.js?v=20261031p"></script>
+<script src="mail.js?v=20261031p"></script>
+<script src="photos.js?v=20261031p"></script>
+<script src="privacy.js?v=20261031p"></script>
+<script src="space.js?v=20261031p"></script>
 <script>
 // Tabs: Overview, Records, Flight log, Account. The open tab is in the address (#log etc.) so it can be bookmarked.
 (function(){
