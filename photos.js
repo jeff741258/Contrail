@@ -273,6 +273,8 @@
     await new Promise(resolve => { const r = indexedDB.deleteDatabase("contrail"); r.onsuccess = r.onerror = r.onblocked = () => resolve(); });
   }
 
-  window.ContrailPhotos = { drawer, hydrate, pump, prune, deletePhoto, wipe };
+  window.ContrailPhotos = { drawer, hydrate, pump, prune, deletePhoto, wipe,
+    // Full-size photo for exports: from this device, or downloaded from the cloud if needed.
+    getFull: id => getFull(id).catch(() => null) };
   App.refreshLog(); // draw photo buttons now that photos are available
 })();

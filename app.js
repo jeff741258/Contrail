@@ -897,7 +897,12 @@ window.ContrailApp={getDoc,setDoc,keyOf,parseEmails,reviewCandidates,dropNumberl
   counts:()=>({flights:real().length,photos:photos.length}),findAircraft,
   // Total distance flown (real flights, or the examples while the log is empty) for the Space page.
   totalKm:()=>{const l=real().length?real():flights;return l.reduce((s,f)=>s+distKm(f.from,f.to),0);},
-  fmtDist:(km,dec)=>fmtDist(km,dec),unit:()=>unit,isExample:()=>!real().length};
+  fmtDist:(km,dec)=>fmtDist(km,dec),unit:()=>unit,isExample:()=>!real().length,
+  // For "Export your data"
+  exportRows:()=>real().slice().sort((a,b)=>a.date.localeCompare(b.date)).map(f=>({date:f.date,airline_code:f.airline||"",airline:AL[f.airline]||"",
+    flight:f.airline&&f.num?f.airline+f.num:"",from:f.from,from_city:AP[f.from]?AP[f.from].city:"",to:f.to,to_city:AP[f.to]?AP[f.to].city:"",
+    aircraft:f.ac||"",distance_km:Math.round(distKm(f.from,f.to)),distance_mi:Math.round(distKm(f.from,f.to)*0.621371)})),
+  exportPhotos:()=>photos.map(p=>{const f=real().find(x=>keyOf(x)===p.k);return f?{id:p.id,date:f.date,from:f.from,to:f.to,added:p.added}:null;}).filter(Boolean).sort((a,b)=>a.date.localeCompare(b.date)||a.added-b.added)};
 
 load();render();
 })();

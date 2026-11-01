@@ -70,6 +70,61 @@
     }
   }
 
+  // ---------- export ----------
+  const today = () => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
+  function download(name, blob){
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+  }
+  function exSay(t, err){ const m = $("exMsg"); m.textContent = t; m.classList.toggle("err", !!err); }
+  const csvCell = v => { v = String(v == null ? "" : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+
+  $("exCsv").addEventListener("click", () => {
+    const rows = App.exportRows();
+    if(!rows.length){ exSay("Your log is empty, so there's nothing to export yet.", true); return; }
+    const cols = Object.keys(rows[0]);
+    const csv = "\ufeff" + [cols.join(",")].concat(rows.map(r => cols.map(c => csvCell(r[c])).join(","))).join("\r\n");
+    download("contrail-flights-" + today() + ".csv", new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    exSay("Downloaded " + plural(rows.length, "flight") + ".");
+  });
+
+  $("exJson").addEventListener("click", () => {
+    const doc = App.getDoc();
+    if(!doc.flights.length){ exSay("Your log is empty, so there's nothing to export yet.", true); return; }
+    download("contrail-data-" + today() + ".json", new Blob([JSON.stringify(doc, null, 2)], { type: "application/json" }));
+    exSay("Downloaded your full data file: " + plural(doc.flights.length, "flight") + " and " + plural((doc.photos || []).length, "photo") + " listed.");
+  });
+
+  $("exPhotos").addEventListener("click", async () => {
+    const list = App.exportPhotos();
+    if(!list.length){ exSay("You haven't added any photos yet.", true); return; }
+    const btn = $("exPhotos"); btn.disabled = true;
+    try{
+      exSay("Preparing…");
+      await window.ContrailUtil.loadScript("https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js");
+      const zip = new JSZip(), per = {};
+      let added = 0, missing = 0;
+      for(let i = 0; i < list.length; i++){
+        const p = list[i];
+        exSay("Adding photo " + (i + 1) + " of " + list.length + "…");
+        const blob = await window.ContrailPhotos.getFull(p.id);
+        if(!blob){ missing++; continue; }
+        const base = p.date + "_" + p.from + "-" + p.to;
+        per[base] = (per[base] || 0) + 1;
+        zip.file(base + "_" + per[base] + ".jpg", blob, { binary: true, compression: "STORE" });
+        added++;
+      }
+      if(!added){ exSay("Couldn't get any photos. If they were added on another device, sign in under Sync and backups first.", true); return; }
+      exSay("Creating the zip file…");
+      download("contrail-photos-" + today() + ".zip", await zip.generateAsync({ type: "blob" }));
+      exSay("Downloaded " + plural(added, "photo") + "." + (missing ? " " + plural(missing, "photo") + " couldn't be fetched; sign in under Sync and backups to include photos added on other devices." : ""));
+    }catch(e){
+      exSay("The photo export didn't work (" + ((e && e.message) || "error") + "). Check your connection and try again.", true);
+    }finally{ btn.disabled = false; }
+  });
+
   $("wipeOpen").addEventListener("click", openConfirm);
   $("wipeCancel").addEventListener("click", closeConfirm);
   $("wipeType").addEventListener("input", e => { $("wipeGo").disabled = e.target.value.trim().toUpperCase() !== "DELETE"; });

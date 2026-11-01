@@ -372,3 +372,18 @@ a.rec.recbtn:hover .big{color:var(--accent)}
 .sp-bar{display:block;width:90px;height:4px;border-radius:2px;background:#1A2540;overflow:hidden}
 .sp-bar span{display:block;height:100%;background:#86A9FF}
 .sp-foot{margin:14px 0 0;font-size:12px;color:#7F8BA5}
+
+/* records that open the flight log */
+a.rec.recbtn .go{color:var(--accent)}
+a.rec.recbtn{border-radius:6px;transition:background .15s}
+a.rec.recbtn:hover{background:var(--surface)}
+a.yr{text-decoration:none;color:inherit;border-radius:4px}
+a.yr:hover b,a.yr:hover span:first-child{color:var(--accent)}
+.lfroute{display:flex;align-items:center;gap:6px;align-self:flex-start;border:1px solid var(--accent);color:var(--ink);background:var(--accent-soft);border-radius:999px;padding:3px 4px 3px 12px;font-size:13px}
+.lfroute b{font-family:var(--f-mono);font-weight:600}
+.lfx{border:0;background:transparent;color:var(--ink);font-size:16px;line-height:1;width:24px;height:24px;border-radius:50%;cursor:pointer}
+.lfx:hover{background:var(--surface)}
+
+/* export */
+.wipe.export{border-top:1px solid var(--line)}
+.wipe.export .row{flex-wrap:wrap}

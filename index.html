@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="styles.css?v=20261031r">
+<link rel="stylesheet" href="styles.css?v=20261031s">
 </head>
 <body>
 <div class="shell">
@@ -179,11 +179,21 @@
         <div class="sec-h"><h2>Privacy</h2></div>
         <div class="panel opt">
           <ul class="plist">
-            <li><b>What's kept.</b> For each flight: the date, airline, flight number, and departure and arrival airports. No names, booking codes, seats, prices or email text.</li>
+            <li><b>What's kept.</b> For each flight: the date, airline, flight number, departure and arrival airports, and the aircraft if known. No names, booking codes, seats, prices or email text.</li>
             <li><b>Emails</b> are read in your browser to find flights and are never saved or sent anywhere.</li>
             <li><b>Photos</b> are resized and re-saved before they're kept, which removes hidden details such as GPS location.</li>
             <li><b>Where it lives.</b> In this browser, and in your own Google Drive, OneDrive or iCloud if you sign in. Contrail has no server and no account of its own; nobody else can see your log.</li>
           </ul>
+          <div class="wipe export">
+            <h3>Export your data</h3>
+            <p class="hint">Download a copy of everything Contrail keeps for you, to keep or to use in another app.</p>
+            <div class="row">
+              <button class="btn" id="exCsv" type="button">Flight log (.csv)</button>
+              <button class="btn" id="exJson" type="button">Everything (.json)</button>
+              <button class="btn" id="exPhotos" type="button">Photos (.zip)</button>
+            </div>
+            <p class="msg" id="exMsg" role="status"></p>
+          </div>
           <div class="wipe">
             <h3>Delete all data</h3>
             <p class="hint">Remove every flight, photo, sign-in and setting Contrail has stored, and optionally your cloud copy.</p>
@@ -231,20 +241,20 @@
   </nav>
 </div>
 
-<script src="airports.js?v=20261031r"></script>
-<script src="land.js?v=20261031r"></script>
-<script src="app.js?v=20261031r"></script>
-<script src="config.js?v=20261031r"></script>
-<script src="common.js?v=20261031r"></script>
-<script src="msauth.js?v=20261031r"></script>
-<script src="google.js?v=20261031r"></script>
-<script src="microsoft.js?v=20261031r"></script>
-<script src="apple.js?v=20261031r"></script>
-<script src="sync.js?v=20261031r"></script>
-<script src="mail.js?v=20261031r"></script>
-<script src="photos.js?v=20261031r"></script>
-<script src="privacy.js?v=20261031r"></script>
-<script src="space.js?v=20261031r"></script>
+<script src="airports.js?v=20261031s"></script>
+<script src="land.js?v=20261031s"></script>
+<script src="app.js?v=20261031s"></script>
+<script src="config.js?v=20261031s"></script>
+<script src="common.js?v=20261031s"></script>
+<script src="msauth.js?v=20261031s"></script>
+<script src="google.js?v=20261031s"></script>
+<script src="microsoft.js?v=20261031s"></script>
+<script src="apple.js?v=20261031s"></script>
+<script src="sync.js?v=20261031s"></script>
+<script src="mail.js?v=20261031s"></script>
+<script src="photos.js?v=20261031s"></script>
+<script src="privacy.js?v=20261031s"></script>
+<script src="space.js?v=20261031s"></script>
 <script>
 // Tabs: Overview, Records, Flight log, Account. The open tab is in the address (#log etc.) so it can be bookmarked.
 (function(){
