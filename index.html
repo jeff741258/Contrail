@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="styles.css?v=20261031x">
+<link rel="stylesheet" href="styles.css?v=20261031y">
 </head>
 <body>
 <div class="shell">
@@ -46,7 +46,8 @@
         <div class="stat"><span class="label">Countries</span><span class="v" id="sCountries">0</span></div>
       </div>
 
-      <section>
+      <div id="routeHome"></div>
+      <section id="routeSec">
         <div class="sec-h"><h2>Route chart</h2><div class="row"><span class="label" id="mapNote"></span><select id="apPick" aria-label="Show flights for an airport"></select></div></div>
         <div class="logtabs" id="mapTabs" role="tablist" aria-label="Routes to show"></div>
         <div class="panel chart">
@@ -63,6 +64,8 @@
         <div class="years" id="years"></div>
       </section>
     </div>
+
+    <div class="view" data-view="map" hidden><div id="routeMapTab"></div></div>
 
     <div class="view" data-view="add" hidden>
       <section>
@@ -236,36 +239,43 @@
 </div>
   <nav class="tabnav" aria-label="Sections">
     <a class="tab" href="#overview" data-view="home"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 17c3-9 15-9 18 0"/><circle cx="3.5" cy="17" r="1.6"/><circle cx="20.5" cy="17" r="1.6"/></svg><span>Overview</span></a>
+    <a class="tab" href="#map" data-view="map"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M9 4 3.5 6v14L9 18l6 2 5.5-2V4L15 6 9 4Z"/><path d="M9 4v14M15 6v14"/></svg><span>Map</span></a>
     <a class="tab" href="#add" data-view="add"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 8v8M8 12h8"/></svg><span>Add flights</span></a>
     <a class="tab" href="#log" data-view="log"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg><span>Flight log</span></a>
     <a class="tab" href="#account" data-view="account"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="8.5" r="3.5"/><path d="M5 20c1.2-3.6 4-5.5 7-5.5s5.8 1.9 7 5.5"/></svg><span>Account</span></a>
   </nav>
 </div>
 
-<script src="airports.js?v=20261031x"></script>
-<script src="land.js?v=20261031x"></script>
-<script src="app.js?v=20261031x"></script>
-<script src="config.js?v=20261031x"></script>
-<script src="common.js?v=20261031x"></script>
-<script src="msauth.js?v=20261031x"></script>
-<script src="google.js?v=20261031x"></script>
-<script src="microsoft.js?v=20261031x"></script>
-<script src="apple.js?v=20261031x"></script>
-<script src="sync.js?v=20261031x"></script>
-<script src="mail.js?v=20261031x"></script>
-<script src="photos.js?v=20261031x"></script>
-<script src="privacy.js?v=20261031x"></script>
-<script src="space.js?v=20261031x"></script>
+<script src="airports.js?v=20261031y"></script>
+<script src="land.js?v=20261031y"></script>
+<script src="app.js?v=20261031y"></script>
+<script src="config.js?v=20261031y"></script>
+<script src="common.js?v=20261031y"></script>
+<script src="msauth.js?v=20261031y"></script>
+<script src="google.js?v=20261031y"></script>
+<script src="microsoft.js?v=20261031y"></script>
+<script src="apple.js?v=20261031y"></script>
+<script src="sync.js?v=20261031y"></script>
+<script src="mail.js?v=20261031y"></script>
+<script src="photos.js?v=20261031y"></script>
+<script src="privacy.js?v=20261031y"></script>
+<script src="space.js?v=20261031y"></script>
 <script>
-// Tabs: Overview, Records, Flight log, Account. The open tab is in the address (#log etc.) so it can be bookmarked.
+// Tabs: Overview, Map, Add flights, Flight log, Account. The open tab is in the address (#log etc.) so it can be bookmarked.
 (function(){
   const views=[...document.querySelectorAll(".view")], tabs=[...document.querySelectorAll(".tabnav .tab")];
-  const byHash={overview:"home",add:"add",log:"log",account:"account",records:"home",space:"space"};
+  const byHash={overview:"home",map:"map",add:"add",log:"log",account:"account",records:"home",space:"space"};
   function show(){
     const v=byHash[location.hash.slice(1)]||"home";
+    // The route chart is one element shared by Overview and the Map tab, moved to whichever is open,
+    // so the selected airport, period, zoom and position carry over between them.
+    const sec=document.getElementById("routeSec");
+    if(v==="map")document.getElementById("routeMapTab").appendChild(sec);
+    else if(v==="home")document.getElementById("routeHome").after(sec);
+    document.body.classList.toggle("on-map",v==="map");
     views.forEach(el=>{el.hidden=el.dataset.view!==v;});
     tabs.forEach(t=>{if(t.dataset.view===v)t.setAttribute("aria-current","page");else t.removeAttribute("aria-current");});
-    if(v==="home")dispatchEvent(new Event("resize")); // the route chart sizes itself when it becomes visible
+    if(v==="home"||v==="map")dispatchEvent(new Event("resize")); // the route chart sizes itself when it becomes visible
   }
   addEventListener("hashchange",()=>{show();scrollTo(0,0);});
   show();
