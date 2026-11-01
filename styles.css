@@ -511,3 +511,8 @@ a.hg-card{transition:transform .15s,box-shadow .15s}
 .hg-allink{display:flex;flex-direction:column;gap:3px;color:inherit;text-decoration:none;border-radius:8px;margin:-6px;padding:6px}
 .hg-allink:hover,.hg-allink:focus-visible{background:color-mix(in srgb,var(--accent) 10%,transparent)}
 .hg-allink .go{color:var(--accent);font-weight:600}
+.hg-albody .legph.hg-reg{grid-template-columns:76px minmax(0,1fr) auto auto}
+.hg-share{display:inline-flex;align-items:center;gap:5px;border:1px solid color-mix(in srgb,var(--signal) 60%,var(--line));background:color-mix(in srgb,var(--signal) 14%,transparent);color:var(--ink);border-radius:999px;padding:5px 10px;font-weight:600;font-size:12.5px;cursor:pointer}
+.hg-share:hover{border-color:var(--signal)}
+.hg-share:disabled{opacity:.6;cursor:wait}
+.hg-lock{font:600 10px var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);border:1px dashed var(--muted);border-radius:999px;padding:3px 8px;cursor:help}

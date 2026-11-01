@@ -102,13 +102,13 @@
           '<b class="hg-alname">' + esc(name) + ' <span class="go">›</span></b>' +
           '<span class="hg-alsub">' + (code ? code + " · " : "") + fl.length + (fl.length === 1 ? " flight" : " flights") + '</span>' +
           '<span class="hg-alsub">' + (fl.length === 1 ? fmt(first.date) + " · " + first.from + " → " + first.to : "First " + fmt(first.date) + " · last " + fmt(last.date)) + '</span></a>' +
-          regBlock(k, regs, label) +
+          regBlock(k, regs, label, caught) +
           (PH() ? PH().drawer(k, ids, label) : "") +
         '</div></div>';
     }).join("");
   }
   // registrations (tail numbers) for one aircraft + airline, each with a photo slot beside it
-  function regBlock(k, regs, label){
+  function regBlock(k, regs, label, caught){
     const rows = regs.map(r => {
       const rk = k + "|" + r.reg, pics = App.photosFor(rk);
       return '<div class="legph hg-reg" data-k="' + esc(rk) + '">' +
@@ -116,12 +116,80 @@
           '<label class="hg-regadd" title="Add a photo of ' + esc(r.reg) + '">' + (pics.length ? "+" : '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 8h3l2-2.5h6L17 8h3v11H4Z"/><circle cx="12" cy="13" r="3.5"/></svg>') +
           '<input type="file" accept="image/*" multiple data-k="' + esc(rk) + '" aria-label="Add a photo of ' + esc(r.reg) + '"></label></span>' +
         '<b class="hg-regno">' + esc(r.reg) + '</b>' +
+        // a share card once there's a photo; it says "caught" only when an email confirmed the type with this airline
+        (pics.length ? (caught ? '<button type="button" class="hg-share" data-rk="' + esc(rk) + '" aria-label="Share ' + esc(r.reg) + ' as a caught card"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 15V3M7 8l5-5 5 5M5 13v7h14v-7"/></svg>Share</button>'
+          : '<span class="hg-lock" title="Import an email that names this aircraft on a ' + esc(label.split(" · ")[1] || "") + ' flight to catch it and unlock sharing">Seen</span>') : "") +
         '<button type="button" class="hg-regx" data-rid="' + r.id + '" aria-label="Remove ' + esc(r.reg) + '">×</button>' +
         '<p class="phmsg msg" role="status"></p></div>';
     }).join("");
     return '<div class="hg-regs"><span class="hg-regh">Registrations</span>' + rows +
       '<form class="hg-regform" data-k="' + esc(k) + '"><input type="text" maxlength="12" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="e.g. C-FIVM" aria-label="Add a registration for ' + esc(label) + '"><button class="btn" type="submit">Add</button></form>' +
       '<p class="hg-regmsg msg" role="status"></p></div>';
+  }
+  // ---------- share card: a trading card saying you caught this type, with your photo of the plane ----------
+  const TCOL = { legendary: "#E0A021", epic: "#9B6CEB", rare: "#3B82F0", uncommon: "#22A06B", common: "#9AA6BA" };
+  async function shareCard(rk, btn){
+    const [type, code, reg] = rk.slice(3).split("|");
+    const c = build().find(x => x.name === type); if(!c) return;
+    const fl = c.list.filter(f => (f.airline || "") === code && f.acv).sort((a, b) => a.date.localeCompare(b.date));
+    if(!fl.length) return;
+    const ids = App.photosFor(rk), blob = ids.length && PH() ? await PH().getFull(ids[ids.length - 1]) : null;
+    const msg = btn.closest(".hg-reg").querySelector(".phmsg");
+    if(!blob){ msg.textContent = "This photo is on another device. Sign in to download it first."; return; }
+    btn.disabled = true; msg.textContent = "Making your card…";
+    try{
+      if(document.fonts && document.fonts.ready) await document.fonts.ready;
+      const img = await new Promise((res, rej) => { const u = URL.createObjectURL(blob), i = new Image(); i.onload = () => { URL.revokeObjectURL(u); res(i); }; i.onerror = rej; i.src = u; });
+      const W = 1080, H = 1350, col = TCOL[c.tier.id], airline = code ? App.airlineName(code) : "", first = fl[0];
+      const cv = document.createElement("canvas"); cv.width = W; cv.height = H; const x = cv.getContext("2d");
+      const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+      const FD = css("--f-display"), FB = css("--f-body"), FM = css("--f-mono");
+      const rr = (X, Y, w, h, r) => { x.beginPath(); x.moveTo(X + r, Y); x.arcTo(X + w, Y, X + w, Y + h, r); x.arcTo(X + w, Y + h, X, Y + h, r); x.arcTo(X, Y + h, X, Y, r); x.arcTo(X, Y, X + w, Y, r); x.closePath(); };
+      // card body with a frame in the rarity colour
+      x.fillStyle = "#070B14"; x.fillRect(0, 0, W, H);
+      const g = x.createLinearGradient(0, 0, W, H); g.addColorStop(0, col); g.addColorStop(.5, "#FFFFFF"); g.addColorStop(1, col);
+      rr(30, 30, W - 60, H - 60, 44); x.fillStyle = g; x.fill();
+      rr(44, 44, W - 88, H - 88, 34); const bg = x.createLinearGradient(0, 44, 0, H); bg.addColorStop(0, "#16213A"); bg.addColorStop(1, "#0B1220"); x.fillStyle = bg; x.fill();
+      // header
+      x.fillStyle = col; x.font = "800 92px " + FD; x.textBaseline = "alphabetic"; x.fillText("CAUGHT!", 92, 160);
+      x.textAlign = "right"; x.fillStyle = "#C9D3E6"; x.font = "600 28px " + FM; x.fillText("#" + String(c.no).padStart(3, "0"), W - 92, 112);
+      x.fillStyle = col; x.font = "700 26px " + FM; x.fillText(c.tier.label.toUpperCase(), W - 92, 156); x.textAlign = "left";
+      // photo, cropped to fill
+      const px = 92, py = 196, pw = W - 184, ph = 600;
+      x.save(); rr(px, py, pw, ph, 22); x.clip();
+      const sc = Math.max(pw / img.width, ph / img.height), dw = img.width * sc, dh = img.height * sc;
+      x.drawImage(img, px + (pw - dw) / 2, py + (ph - dh) / 2, dw, dh); x.restore();
+      x.strokeStyle = col; x.lineWidth = 4; rr(px, py, pw, ph, 22); x.stroke();
+      // registration on a tag over the photo
+      x.font = "700 64px " + FM; const tw = x.measureText(reg).width;
+      rr(px + 24, py + ph - 108, tw + 56, 84, 16); x.fillStyle = "rgba(7,11,20,.82)"; x.fill();
+      x.fillStyle = "#fff"; x.fillText(reg, px + 52, py + ph - 44);
+      // aircraft and airline
+      x.fillStyle = "#fff"; x.font = "800 76px " + FD; x.fillText(type.toUpperCase(), 92, 900, W - 184);
+      x.fillStyle = "#C9D3E6"; x.font = "600 40px " + FB; x.fillText(airline || "Airline not known", 92, 958, W - 184);
+      x.fillStyle = "#8E9BB5"; x.font = "30px " + FB;
+      x.fillText("First caught " + fmt(first.date) + "  ·  " + first.from + " → " + first.to + (first.airline ? "  ·  " + first.airline + " " + first.num : ""), 92, 1012, W - 184);
+      x.fillText(fl.length + (fl.length === 1 ? " flight" : " flights") + " on this type with " + (airline || "this airline"), 92, 1056, W - 184);
+      // confirmation badge
+      const badge = "✓  CONFIRMED BY EMAIL"; x.font = "700 26px " + FM; const bw = x.measureText(badge).width + 48;
+      rr(92, 1098, bw, 58, 29); x.fillStyle = col; x.fill(); x.fillStyle = "#0B1220"; x.fillText(badge, 116, 1137);
+      // footer
+      x.fillStyle = "#fff"; x.font = "800 40px " + FD; x.fillText("CONTRAIL", 92, 1240);
+      x.fillStyle = "#86A9FF"; x.fillText(".", 92 + x.measureText("CONTRAIL").width, 1240);
+      x.textAlign = "right"; x.fillStyle = "#8E9BB5"; x.font = "24px " + FM; x.fillText("Hangar · aircraft collection", W - 92, 1236); x.textAlign = "left";
+      const png = await new Promise(r => cv.toBlob(r, "image/png"));
+      const name = "contrail-caught-" + reg + ".png", file = new File([png], name, { type: "image/png" });
+      const text = "Caught the " + type + (airline ? " with " + airline : "") + " (" + reg + ") ✈️";
+      if(navigator.canShare && navigator.canShare({ files: [file] })){
+        try{ await navigator.share({ files: [file], title: "Caught: " + type, text }); msg.textContent = ""; }
+        catch(e){ msg.textContent = e && e.name === "AbortError" ? "" : "Sharing didn't work, so the card was saved instead."; if(!(e && e.name === "AbortError")) save(png, name); }
+      }else{ save(png, name); msg.textContent = "Saved " + name + ". Share it from your downloads."; }
+    }catch(e){ msg.textContent = "Couldn't make the card (" + ((e && e.message) || "error") + ")."; }
+    finally{ btn.disabled = false; }
+  }
+  function save(blob, name){
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
   }
   function renderDetail(c){
     $("hgList").hidden = true; $("hgDetail").hidden = false;
@@ -174,6 +242,8 @@
     // airline name and dates: that aircraft with that airline in the flight log
     const al = e.target.closest(".hg-allink");
     if(al){ e.preventDefault(); App.openLog({ ac: detail, al: al.dataset.al }); return; }
+    const sh = e.target.closest(".hg-share");
+    if(sh){ shareCard(sh.dataset.rk, sh); return; }
     const x = e.target.closest(".hg-regx");
     if(x){ // two taps: "×" then "Remove?"
       if(x.classList.contains("sure")){ App.removeReg(x.dataset.rid); return; }
