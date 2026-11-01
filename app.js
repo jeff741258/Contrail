@@ -12,13 +12,15 @@ const AMBIG = new Set(["CAN","PER","ADD","MAN","SEA","DEN","BOS","MIA","LAS","AN
 const COUNTRY_NAMES = {};
 
 // ---------- state ----------
-const KEY="contrail.flights.v1", RKEY="contrail.removed.v1", UKEY="contrail.unit";
-let flights=[], removed=[], unit="mi", candidates=[];
+const KEY="contrail.flights.v1", RKEY="contrail.removed.v1", PKEY="contrail.photos.v1", UKEY="contrail.unit";
+// photos: which photo belongs to which flight, {id, k: flight key, added}. The images are in photos.js.
+let flights=[], removed=[], photos=[], unit="mi", candidates=[];
 // Every flight records when it was added and every deletion when it happened,
 // so logs edited on different devices merge cleanly (see sync.js).
 function load(){
   try{const s=localStorage.getItem(KEY); if(s){flights=JSON.parse(s)||[];}}catch(e){}
   try{const r=localStorage.getItem(RKEY); if(r){removed=JSON.parse(r)||[];}}catch(e){}
+  try{const p=localStorage.getItem(PKEY); if(p){photos=JSON.parse(p)||[];}}catch(e){}
   try{const u=localStorage.getItem(UKEY); if(u==="km"||u==="mi")unit=u;}catch(e){}
   flights.forEach(f=>{if(!f.id)f.id=uid();if(typeof f.added!=="number")f.added=0;});
   if(!flights.length) flights=EXAMPLES.map(f=>Object.assign({},f,{id:uid(),example:true}));
@@ -26,6 +28,7 @@ function load(){
 function saveLocal(){
   try{localStorage.setItem(KEY,JSON.stringify(flights.filter(f=>!f.example).length?flights:[]));}catch(e){}
   try{localStorage.setItem(RKEY,JSON.stringify(removed));}catch(e){}
+  try{localStorage.setItem(PKEY,JSON.stringify(photos));}catch(e){}
 }
 function save(){saveLocal();if(window.ContrailSync)window.ContrailSync.changed();}
 function uid(){return Math.random().toString(36).slice(2,10)}
@@ -223,11 +226,20 @@ function renderLog(list){
   $("pgInfo").textContent=shown.length?`${logPage*PAGE+1}–${logPage*PAGE+page.length} of ${shown.length}`:"";
   $("pgPrev").disabled=logPage===0;$("pgNext").disabled=logPage>=pages-1;
   if(!shown.length){L.innerHTML='<div class="empty">No flights in this period.</div>';return;}
+  const PH=window.ContrailPhotos;
   L.innerHTML=page.map(f=>{
-    const a=AP[f.from],b=AP[f.to];
+    const a=AP[f.from],b=AP[f.to],k=keyOf(f),ids=photosFor(k),open=PH&&!f.example&&openPh===k;
     const fl=f.airline?`${esc(AL[f.airline]||f.airline)} ${f.airline} ${f.num}`:"Flight";
-    return `<div class="leg"><span class="d">${f.date}</span><span class="r"><b>${f.from} → ${f.to}${f.example?'<span class="tag">Example</span>':""}</b><span>${fl} · ${esc(a.city)} to ${esc(b.city)}</span></span><span class="km">${fmtDist(distKm(f.from,f.to))} ${unit}</span><button class="x" data-id="${f.id}" aria-label="Remove ${f.from} to ${f.to} on ${f.date}">×</button></div>`;}).join("");
+    const label=`${f.from} to ${f.to} on ${f.date}`;
+    const phb=f.example||!PH?'<span></span>':`<button type="button" class="phb${ids.length?" has":""}" data-k="${esc(k)}" aria-expanded="${open}" aria-label="${ids.length?ids.length+(ids.length===1?" photo":" photos"):"Add photos"} for ${label}">`+
+      (ids.length?`<img alt="" data-thumb="${ids[0]}"><span class="phn">${ids.length}</span>`:CAMERA)+`</button>`;
+    return `<div class="leg${open?" open":""}"><span class="d">${f.date}</span><span class="r"><b>${f.from} → ${f.to}${f.example?'<span class="tag">Example</span>':""}</b><span>${fl} · ${esc(a.city)} to ${esc(b.city)}</span></span><span class="km">${fmtDist(distKm(f.from,f.to))} ${unit}</span>${phb}<button class="x" data-id="${f.id}" aria-label="Remove ${label}">×</button></div>`+
+      (open?PH.drawer(esc(k),ids,label):"");}).join("");
+  if(PH)PH.hydrate(L);
 }
+const CAMERA='<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l1.6-2.2h6.8L17 8h3v11H4z"/><circle cx="12" cy="13.2" r="3.4"/></svg>';
+let openPh=null;
+function photosFor(k){return photos.filter(p=>p.k===k).sort((a,b)=>a.added-b.added).map(p=>p.id);}
 
 // ---------- route chart ----------
 function cssv(n){return getComputedStyle(document.documentElement).getPropertyValue(n).trim()}
@@ -462,9 +474,14 @@ $("manual").addEventListener("submit",e=>{
   m.textContent=n?"Logged.":"That flight is already in your log.";
   if(n){$("mFrom").value=to;$("mTo").value="";$("mFlight").value="";}
 });
-$("log").addEventListener("click",e=>{const b=e.target.closest(".x");if(!b)return;
+$("log").addEventListener("click",e=>{
+  const pb=e.target.closest(".phb");
+  if(pb){openPh=openPh===pb.dataset.k?null:pb.dataset.k;renderLog(logList);
+    const again=$("log").querySelector('.phb[data-k="'+CSS.escape(pb.dataset.k)+'"]');if(again)again.focus();return;}
+  const b=e.target.closest(".x");if(!b)return;
   const gone=flights.find(f=>f.id===b.dataset.id);
-  if(gone&&!gone.example){const k=keyOf(gone);removed=removed.filter(r=>r.k!==k);removed.push({k,at:Date.now()});}
+  if(gone&&!gone.example){const k=keyOf(gone);removed=removed.filter(r=>r.k!==k);removed.push({k,at:Date.now()});
+    if(window.ContrailPhotos)photosFor(k).forEach(id=>window.ContrailPhotos.deletePhoto(id));}
   flights=flights.filter(f=>f.id!==b.dataset.id);save();render();});
 $("logTabs").addEventListener("click",e=>{const b=e.target.closest(".ltab");if(!b)return;
   logTab=b.dataset.tab;logPage=0;try{localStorage.setItem(TKEY,logTab);}catch(_){}renderLog(logList);
@@ -561,14 +578,22 @@ function normalizeRow(r){
 function getDoc(){
   return {app:"Contrail",format:2,updatedAt:Date.now(),
     flights:real().slice().sort((a,b)=>a.date.localeCompare(b.date)).map(f=>({date:f.date,airline:f.airline||"",flight:f.num||"",from:f.from,to:f.to,added:f.added||0})),
+    photos:photos.filter(p=>real().some(f=>keyOf(f)===p.k)).map(p=>({id:p.id,k:p.k,added:p.added})),
     removed:removed.slice(-1000)};
 }
 function setDoc(doc){
   const list=(doc.flights||[]).map(normalizeRow).filter(Boolean).map(f=>Object.assign(f,{id:uid()}));
   removed=Array.isArray(doc.removed)?doc.removed.filter(r=>r&&typeof r.k==="string"&&typeof r.at==="number"):[];
   flights=list.length?list:EXAMPLES.map(f=>Object.assign({},f,{id:uid(),example:true}));
+  photos=Array.isArray(doc.photos)?doc.photos.filter(p=>p&&typeof p.id==="string"&&typeof p.k==="string").map(p=>({id:p.id,k:p.k,added:Number(p.added)||0})):photos;
   saveLocal();render();
+  if(window.ContrailPhotos)window.ContrailPhotos.prune(photos.map(p=>p.id));
 }
+// ---------- bridge for photos.js ----------
+function addPhotoMeta(k,id){const now=Date.now();removed=removed.filter(r=>r.k!=="p:"+id);photos.push({id,k,added:now});save();}
+function removePhotoMeta(id){photos=photos.filter(p=>p.id!==id);removed=removed.filter(r=>r.k!=="p:"+id);removed.push({k:"p:"+id,at:Date.now()});save();}
+function refreshLog(){renderLog(logList);}
+function flightLabel(k){const f=real().find(x=>keyOf(x)===k);return f?`${f.from} → ${f.to} · ${fmtDate(f.date)}`:"Flight photo";}
 // Used by mail.js: show flights found in someone's inbox in the same review list as pasted emails.
 function reviewCandidates(list,message){
   const msg=$("parseMsg");msg.classList.toggle("err",!list.length);msg.textContent=message;
@@ -594,7 +619,8 @@ function removeFlights(ids){
   if(!flights.length)flights=EXAMPLES.map(f=>Object.assign({},f,{id:uid(),example:true}));
   save();render();
 }
-window.ContrailApp={getDoc,setDoc,keyOf,parseEmails,reviewCandidates,dropNumberless,addImported,removeFlights};
+window.ContrailApp={getDoc,setDoc,keyOf,parseEmails,reviewCandidates,dropNumberless,addImported,removeFlights,
+  photoIds:()=>photos.map(p=>p.id),addPhotoMeta,removePhotoMeta,refreshLog,flightLabel};
 
 load();render();
 })();

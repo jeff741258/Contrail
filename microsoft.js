@@ -1,5 +1,5 @@
 // OneDrive storage.
-// Sign-in: Microsoft identity platform via providers/msauth.js (redirect, PKCE, no server).
+// Sign-in: Microsoft identity platform via msauth.js (redirect, PKCE, no server).
 // Storage: contrail.json in the app's own OneDrive folder (Apps/Contrail). The
 // Files.ReadWrite.AppFolder scope can't read or change anything else in the user's OneDrive.
 (function(){
@@ -50,6 +50,26 @@
         method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(doc)
       });
       if(!r.ok) throw U.err("http", "OneDrive returned an error (" + r.status + ").");
+    },
+
+    // Photos: Apps/Contrail/photos/<id>.jpg (simple upload; resized photos are well under 4 MB).
+    async putPhoto(id, blob){
+      const r = await auth.graph("/me/drive/special/approot:/photos/" + id + ".jpg:/content", {
+        method: "PUT", headers: { "Content-Type": "image/jpeg" }, body: blob
+      });
+      if(!r.ok) throw U.err("http", "OneDrive returned an error (" + r.status + ").");
+    },
+    async getPhoto(id){
+      const meta = await auth.graph("/me/drive/special/approot:/photos/" + id + ".jpg");
+      if(meta.status === 404) return null;
+      if(!meta.ok) throw U.err("http", "OneDrive returned an error (" + meta.status + ").");
+      const r = await fetch((await meta.json())["@microsoft.graph.downloadUrl"]);
+      if(!r.ok) throw U.err("http", "OneDrive returned an error (" + r.status + ").");
+      return r.blob();
+    },
+    async deletePhoto(id){
+      const r = await auth.graph("/me/drive/special/approot:/photos/" + id + ".jpg:", { method: "DELETE" });
+      if(!r.ok && r.status !== 404) throw U.err("http", "OneDrive returned an error (" + r.status + ").");
     }
   };
 

@@ -116,8 +116,35 @@
         method: "POST", headers: { "Content-Type": "multipart/related; boundary=" + b }, body: multipart
       })).json();
       fileId = r.id;
+    },
+
+    // Photos: one JPEG per photo in the same hidden app data folder, named photo-<id>.jpg.
+    async putPhoto(id, blob){
+      if(await findPhoto(id)) return; // already uploaded
+      const b = "contrail" + Math.random().toString(36).slice(2);
+      const body = new Blob([
+        "--" + b + "\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n" +
+        JSON.stringify({ name: "photo-" + id + ".jpg", parents: ["appDataFolder"] }) + "\r\n" +
+        "--" + b + "\r\nContent-Type: image/jpeg\r\n\r\n", blob, "\r\n--" + b + "--"]);
+      await api("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id", {
+        method: "POST", headers: { "Content-Type": "multipart/related; boundary=" + b }, body
+      });
+    },
+    async getPhoto(id){
+      const fid = await findPhoto(id);
+      return fid ? (await api("https://www.googleapis.com/drive/v3/files/" + fid + "?alt=media")).blob() : null;
+    },
+    async deletePhoto(id){
+      const fid = await findPhoto(id);
+      if(fid) await api("https://www.googleapis.com/drive/v3/files/" + fid, { method: "DELETE" });
     }
   };
+
+  async function findPhoto(id){
+    const q = encodeURIComponent("name='photo-" + id + ".jpg'");
+    const r = await (await api("https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&pageSize=1&fields=files(id)&q=" + q)).json();
+    return r.files && r.files[0] ? r.files[0].id : null;
+  }
 
   window.ContrailProviders.google = Google;
 })();

@@ -28,14 +28,24 @@
       .filter(([k, f]) => !deleted.has(k) || (f.added || 0) > deleted.get(k))
       .map(([, f]) => f)
       .sort((x, y) => x.date.localeCompare(y.date) || keyOf(x).localeCompare(keyOf(y)));
+    // Photos follow the same rule, keyed "p:<id>" in the removed list, and need their flight to still exist.
+    const pics = new Map();
+    [a, b].forEach(doc => (doc && Array.isArray(doc.photos) ? doc.photos : []).forEach(p => {
+      if(p && typeof p.id === "string" && !pics.has(p.id)) pics.set(p.id, p);
+    }));
+    const liveFlights = new Set(flights.map(keyOf));
+    const photos = [...pics.values()]
+      .filter(p => liveFlights.has(p.k) && (!deleted.has("p:" + p.id) || (p.added || 0) > deleted.get("p:" + p.id)))
+      .sort((x, y) => (x.added || 0) - (y.added || 0));
     const removed = [...deleted.entries()].map(([k, at]) => ({ k, at })).sort((x, y) => x.at - y.at).slice(-1000);
-    return { app: "Contrail", format: 2, updatedAt: Date.now(), flights, removed };
+    return { app: "Contrail", format: 2, updatedAt: Date.now(), flights, photos, removed };
   }
   function fingerprint(doc){
     if(!doc) return "";
     const f = (doc.flights || []).map(x => keyOf(x) + "@" + (x.added || 0)).sort().join(",");
     const r = (doc.removed || []).map(x => x.k + "@" + x.at).sort().join(",");
-    return f + "#" + r;
+    const p = (doc.photos || []).map(x => x.id + ">" + x.k).sort().join(",");
+    return f + "#" + r + "#" + p;
   }
 
   // ---------- state ----------
@@ -66,6 +76,7 @@
         catch(e){ if(e && e.code === "conflict") await syncOnce(); else throw e; } // another device saved first: merge again
         S.last = lastPull = Date.now();
         set("ok");
+        if(window.ContrailPhotos) window.ContrailPhotos.pump(); // upload new photos, delete removed ones
       }catch(e){
         if(e && e.code === "auth") set("reconnect", e.message);
         else set("error", (e && e.message) || "Sync failed.");
@@ -176,6 +187,8 @@
 
   window.ContrailSync = {
     merge, fingerprint, state: S,
+    // The signed-in storage provider, if it's connected right now.
+    provider(){ return S.active && S.state !== "reconnect" ? PROVIDERS[S.active] : null; },
     // Called by app.js after every local edit; batches quick edits into one sync.
     changed(){
       if(!S.active || S.state === "reconnect") return;
