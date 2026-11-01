@@ -69,6 +69,7 @@ function dedupeTrips(){
     const keep=g[0],kk=keyOf(keep);
     g.slice(1).forEach(d=>{
       const dk=keyOf(d);
+      if(!keep.reg&&d.reg){keep.reg=d.reg;keep.edited=Math.max(keep.edited||0,now);}
       if(!keep.ac&&d.ac){keep.ac=d.ac;if(d.acv)keep.acv=1;keep.edited=Math.max(keep.edited||0,now);}
       else if(d.acv&&!keep.acv&&keep.ac===d.ac){keep.acv=1;keep.edited=Math.max(keep.edited||0,now);}
       photos.forEach(p=>{if(p.k===dk)p.k=kk;});
@@ -387,7 +388,7 @@ function lfActive(){return !!(lf.q||lf.from||lf.to||lf.ap||lf.al||lf.ac||lf.rout
 function lfCount(){return ["from","to","ap","al","ac","route","dirOut","dirIn"].filter(k=>lf[k]).length;}
 function haystack(f){
   return [f.from,f.to,AP[f.from]&&AP[f.from].city,AP[f.to]&&AP[f.to].city,f.airline,AL[f.airline],
-    f.airline&&f.num?f.airline+f.num:"",f.airline&&f.num?f.airline+" "+f.num:"",f.num,f.ac,f.date].filter(Boolean).join(" ").toLowerCase();
+    f.airline&&f.num?f.airline+f.num:"",f.airline&&f.num?f.airline+" "+f.num:"",f.num,f.ac,f.reg,f.date].filter(Boolean).join(" ").toLowerCase();
 }
 function lfMatch(f){
   if(lf.from&&f.date<lf.from)return false;
@@ -448,12 +449,24 @@ function renderLog(list){
     const label=`${f.from} to ${f.to} on ${f.date}`;
     const phb=f.example||!PH?'<span></span>':`<button type="button" class="phb${ids.length?" has":""}" data-k="${esc(k)}" aria-expanded="${open}" aria-label="${ids.length?ids.length+(ids.length===1?" photo":" photos"):"Add photos"} for ${label}">`+
       (ids.length?`<img alt="" data-thumb="${ids[0]}"><span class="phn">${ids.length}</span>`:CAMERA)+`</button>`;
-    return `<div class="leg${open?" open":""}${f.id===focusId?" flash":""}" data-fid="${f.id}"><span class="d">${f.date}</span><span class="r"><b>${f.from} → ${f.to}${f.example?'<span class="tag">Example</span>':""}</b><span>${fl} · ${esc(a.city)} to ${esc(b.city)}</span>${editAc===f.id?`<form class="acform" data-id="${f.id}"><input class="acin" list="acList" maxlength="40" value="${esc(f.ac||"")}" placeholder="e.g. Boeing 737-800" aria-label="Aircraft for ${label}" autocomplete="off"><button class="btn" type="submit">Save</button><button class="btn quiet acx" type="button">Cancel</button></form>`:f.example?(f.ac?`<span class="acv">${esc(f.ac)}</span>`:""):`<button type="button" class="acb${f.ac?"":" add"}" data-id="${f.id}" aria-label="${f.ac?"Change aircraft, "+esc(f.ac):"Add aircraft"} for ${label}">${f.ac?esc(f.ac):"+ Aircraft"}</button>`}</span><span class="km">${fmtDist(distKm(f.from,f.to))} ${unit}</span>${phb}<button class="x" data-id="${f.id}" aria-label="Remove ${label}">×</button></div>`+
+    return `<div class="leg${open?" open":""}${f.id===focusId?" flash":""}" data-fid="${f.id}"><span class="d">${f.date}</span><span class="r"><b>${f.from} → ${f.to}${f.example?'<span class="tag">Example</span>':""}</b><span>${fl} · ${esc(a.city)} to ${esc(b.city)}</span><span class="chips">${editAc===f.id?`<form class="acform" data-id="${f.id}"><input class="acin" list="acList" maxlength="40" value="${esc(f.ac||"")}" placeholder="e.g. Boeing 737-800" aria-label="Aircraft for ${label}" autocomplete="off"><button class="btn" type="submit">Save</button><button class="btn quiet acx" type="button">Cancel</button></form>`:f.example?(f.ac?`<span class="acv">${esc(f.ac)}</span>`:""):`<button type="button" class="acb${f.ac?"":" add"}" data-id="${f.id}" aria-label="${f.ac?"Change aircraft, "+esc(f.ac):"Add aircraft"} for ${label}">${f.ac?esc(f.ac):"+ Aircraft"}</button>`}${regChip(f,label)}</span></span><span class="km">${fmtDist(distKm(f.from,f.to))} ${unit}</span>${phb}<button class="x" data-id="${f.id}" aria-label="Remove ${label}">×</button></div>`+
       (open?PH.drawer(esc(k),ids,label):"");}).join("");
   if(PH)PH.hydrate(L);
 }
 const CAMERA='<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l1.6-2.2h6.8L17 8h3v11H4z"/><circle cx="12" cy="13.2" r="3.4"/></svg>';
-let openPh=null,editAc=null;
+let openPh=null,editAc=null,editReg=null;
+// registration (tail number) of the plane on this flight, e.g. C-FIVM
+function regChip(f,label){
+  if(f.example)return f.reg?`<span class="acv">${esc(f.reg)}</span>`:"";
+  if(editReg===f.id)return `<form class="rgform" data-id="${f.id}"><input class="rgin" maxlength="12" value="${esc(f.reg||"")}" placeholder="e.g. C-FIVM" aria-label="Registration for ${label}" autocomplete="off" autocapitalize="characters" spellcheck="false"><button class="btn" type="submit">Save</button><button class="btn quiet rgx" type="button">Cancel</button><span class="rgmsg"></span></form>`;
+  return `<button type="button" class="acb rgb${f.reg?"":" add"}" data-id="${f.id}" aria-label="${f.reg?"Change registration, "+esc(f.reg):"Add registration"} for ${label}">${f.reg?esc(f.reg):"+ Registration"}</button>`;
+}
+const normReg=v=>String(v||"").trim().toUpperCase().replace(/\s+/g,"-").slice(0,12);
+// a flight's registration also appears under that aircraft and airline in the Hangar, ready for a photo
+function addRegTo(k,reg){reg=normReg(reg);const bare=x=>x.replace(/-/g,"");
+  if(!reg||regs.some(r=>r.k===k&&bare(r.reg)===bare(reg)))return false;
+  const id=uid();regs.push({id,k,reg,added:Date.now()});return true;}
+function linkReg(f){if(f&&f.reg&&f.ac)addRegTo("ac:"+f.ac+"|"+(f.airline||""),f.reg);}
 function photosFor(k){return photos.filter(p=>p.k===k).sort((a,b)=>a.added-b.added).map(p=>p.id);}
 
 // ---------- route chart ----------
@@ -729,8 +742,11 @@ $("manual").addEventListener("submit",e=>{
   if(n){$("mFrom").value=to;$("mTo").value="";$("mFlight").value="";$("mAircraft").value="";}
 });
 $("log").addEventListener("click",e=>{
+  const rb=e.target.closest(".rgb");
+  if(rb){editReg=rb.dataset.id;editAc=null;renderLog(logList);const inp=$("log").querySelector(".rgin");if(inp){inp.focus();inp.select();}return;}
+  if(e.target.closest(".rgx")){const id=editReg;editReg=null;renderLog(logList);const b=$("log").querySelector('.rgb[data-id="'+id+'"]');if(b)b.focus();return;}
   const ab=e.target.closest(".acb");
-  if(ab){editAc=ab.dataset.id;renderLog(logList);const inp=$("log").querySelector(".acin");if(inp){inp.focus();inp.select();}return;}
+  if(ab){editAc=ab.dataset.id;editReg=null;renderLog(logList);const inp=$("log").querySelector(".acin");if(inp){inp.focus();inp.select();}return;}
   if(e.target.closest(".acx")){const id=editAc;editAc=null;renderLog(logList);const b=$("log").querySelector('.acb[data-id="'+id+'"]');if(b)b.focus();return;}
   const pb=e.target.closest(".phb");
   if(pb){openPh=openPh===pb.dataset.k?null:pb.dataset.k;renderLog(logList);
@@ -741,14 +757,20 @@ $("log").addEventListener("click",e=>{
     if(window.ContrailPhotos)photosFor(k).forEach(id=>window.ContrailPhotos.deletePhoto(id));}
   flights=flights.filter(f=>f.id!==b.dataset.id);save();render();});
 $("log").addEventListener("submit",e=>{
+  const rf=e.target.closest(".rgform");
+  if(rf){e.preventDefault();const f=flights.find(x=>x.id===rf.dataset.id),v=normReg(rf.querySelector(".rgin").value);
+    if(v&&!/^[A-Z0-9][A-Z0-9-]{1,11}$/.test(v)){rf.querySelector(".rgmsg").textContent="Letters, numbers and dashes only, like C-FIVM or N12345.";return;}
+    if(f){f.reg=v;if(!v)delete f.reg;f.edited=Date.now();linkReg(f);}
+    editReg=null;save();render();const b=$("log").querySelector('.rgb[data-id="'+rf.dataset.id+'"]');if(b)b.focus();return;}
   const fm=e.target.closest(".acform");if(!fm)return;e.preventDefault();
   const f=flights.find(x=>x.id===fm.dataset.id);const v=fm.querySelector(".acin").value.trim();
   if(f){const nv=v?(findAircraft(v)||v):"";if(nv!==f.ac)delete f.acv; // typed by hand: seen, not caught
-    f.ac=nv;f.edited=Date.now();}
+    f.ac=nv;f.edited=Date.now();linkReg(f);}
   editAc=null;save();render();
   const b=$("log").querySelector('.acb[data-id="'+fm.dataset.id+'"]');if(b)b.focus();
 });
-$("log").addEventListener("keydown",e=>{if(e.key==="Escape"&&e.target.closest(".acform")){const id=editAc;editAc=null;renderLog(logList);const b=$("log").querySelector('.acb[data-id="'+id+'"]');if(b)b.focus();}});
+$("log").addEventListener("keydown",e=>{if(e.key==="Escape"&&e.target.closest(".rgform")){const id=editReg;editReg=null;renderLog(logList);const b=$("log").querySelector('.rgb[data-id="'+id+'"]');if(b)b.focus();return;}
+  if(e.key==="Escape"&&e.target.closest(".acform")){const id=editAc;editAc=null;renderLog(logList);const b=$("log").querySelector('.acb[data-id="'+id+'"]');if(b)b.focus();}});
 $("acList").innerHTML=AC_LIST.map(n=>`<option value="${n}"></option>`).join("");
 // search + filters
 let lqT=0;
@@ -784,7 +806,7 @@ $("pgNext").addEventListener("click",()=>{logPage++;renderLog(logList);});
 $("u-mi").addEventListener("click",()=>{unit="mi";try{localStorage.setItem(UKEY,unit)}catch(e){}render();showCandidates(candidates);});
 $("u-km").addEventListener("click",()=>{unit="km";try{localStorage.setItem(UKEY,unit)}catch(e){}render();showCandidates(candidates);});
 $("copyCsv").addEventListener("click",()=>{
-  const rows=[["date","airline","flight","from","to","aircraft","distance_km"]].concat(flights.slice().sort((a,b)=>a.date.localeCompare(b.date)).map(f=>[f.date,AL[f.airline]||"",f.airline?f.airline+f.num:"",f.from,f.to,(f.ac||"").replace(/,/g," "),Math.round(distKm(f.from,f.to))]));
+  const rows=[["date","airline","flight","from","to","aircraft","registration","distance_km"]].concat(flights.slice().sort((a,b)=>a.date.localeCompare(b.date)).map(f=>[f.date,AL[f.airline]||"",f.airline?f.airline+f.num:"",f.from,f.to,(f.ac||"").replace(/,/g," "),f.reg||"",Math.round(distKm(f.from,f.to))]));
   const csv=rows.map(r=>r.join(",")).join("\n");const btn=$("copyCsv");
   const done=()=>{btn.textContent="Copied";setTimeout(()=>btn.textContent="Copy as CSV",1600);};
   try{navigator.clipboard.writeText(csv).then(done,()=>{$("emailIn").value=csv;$("emailIn").select();btn.textContent="Selected in box above";});}
@@ -883,12 +905,13 @@ function normalizeRow(r){
   const f={from:String(r.from||r.f||"").toUpperCase(),to:String(r.to||r.t||"").toUpperCase(),date:String(r.date||r.d||""),
     airline:String(r.airline||r.a||"").toUpperCase(),num:String(r.flight||r.num||r.n||""),added:Number(r.added)||0,
     ac:String(r.aircraft||r.ac||"").slice(0,40),edited:Number(r.edited)||0};
+  const rg=normReg(r.registration||r.reg);if(rg)f.reg=rg;
   if(f.ac&&(r.aircraftConfirmed||r.acv))f.acv=1; // aircraft confirmed by an inbox import
   return AP[f.from]&&AP[f.to]&&f.from!==f.to&&/^\d{4}-\d{2}-\d{2}$/.test(f.date)?f:null;
 }
 function getDoc(){
   return {app:"Contrail",format:2,updatedAt:Date.now(),wipedAt:wipeSeen(),
-    flights:real().slice().sort((a,b)=>a.date.localeCompare(b.date)).map(f=>Object.assign({date:f.date,airline:f.airline||"",flight:f.num||"",from:f.from,to:f.to,added:f.added||0},f.ac?{aircraft:f.ac}:{},f.ac&&f.acv?{aircraftConfirmed:true}:{},f.edited?{edited:f.edited}:{})),
+    flights:real().slice().sort((a,b)=>a.date.localeCompare(b.date)).map(f=>Object.assign({date:f.date,airline:f.airline||"",flight:f.num||"",from:f.from,to:f.to,added:f.added||0},f.ac?{aircraft:f.ac}:{},f.ac&&f.acv?{aircraftConfirmed:true}:{},f.reg?{registration:f.reg}:{},f.edited?{edited:f.edited}:{})),
     regs:regs.map(r=>({id:r.id,k:r.k,reg:r.reg,added:r.added})),
     photos:photos.filter(p=>p.k.startsWith("ac:")||real().some(f=>keyOf(f)===p.k)).map(p=>({id:p.id,k:p.k,added:p.added})),
     removed:removed.slice(-1000)};
@@ -976,9 +999,7 @@ window.ContrailApp={getDoc,setDoc,keyOf,parseEmails,reviewCandidates,dropNumberl
   airlineName:c=>AL[c]||c,photosFor,
   // Hangar registrations: regsFor(k) lists them; addReg returns false if it's already there
   regsFor:k=>regs.filter(r=>r.k===k).sort((a,b)=>a.added-b.added).map(r=>Object.assign({},r)),
-  addReg(k,reg){reg=String(reg).trim().toUpperCase().replace(/\s+/g,"-").slice(0,12);const bare=x=>x.replace(/-/g,""); // "C FIVM", "CFIVM" and "C-FIVM" are the same plane
-    if(!reg||regs.some(r=>r.k===k&&bare(r.reg)===bare(reg)))return false;
-    const id=uid();removed=removed.filter(x=>x.k!=="r:"+id);regs.push({id,k,reg,added:Date.now()});save();refreshLog();return true;},
+  addReg(k,reg){if(!addRegTo(k,reg))return false;save();refreshLog();return true;}, // "C FIVM", "CFIVM" and "C-FIVM" are the same plane
   removeReg(id){const r=regs.find(x=>x.id===id);if(!r)return;regs=regs.filter(x=>x.id!==id);removed.push({k:"r:"+id,at:Date.now()});
     // its photos go too
     if(window.ContrailPhotos)photosFor(r.k+"|"+r.reg).forEach(pid=>window.ContrailPhotos.deletePhoto(pid));
@@ -990,7 +1011,7 @@ window.ContrailApp={getDoc,setDoc,keyOf,parseEmails,reviewCandidates,dropNumberl
   // For "Export your data"
   exportRows:()=>real().slice().sort((a,b)=>a.date.localeCompare(b.date)).map(f=>({date:f.date,airline_code:f.airline||"",airline:AL[f.airline]||"",
     flight:f.airline&&f.num?f.airline+f.num:"",from:f.from,from_city:AP[f.from]?AP[f.from].city:"",to:f.to,to_city:AP[f.to]?AP[f.to].city:"",
-    aircraft:f.ac||"",distance_km:Math.round(distKm(f.from,f.to)),distance_mi:Math.round(distKm(f.from,f.to)*0.621371)})),
+    aircraft:f.ac||"",registration:f.reg||"",distance_km:Math.round(distKm(f.from,f.to)),distance_mi:Math.round(distKm(f.from,f.to)*0.621371)})),
   exportPhotos:()=>photos.map(p=>{
     if(p.k.startsWith("ac:")){const [a,c,r]=p.k.slice(3).split("|");return {id:p.id,date:"",base:"Hangar_"+(a+(c?" "+(AL[c]||c):"")+(r?" "+r:"")).replace(/[^A-Za-z0-9-]+/g,"-"),added:p.added};}
     const f=real().find(x=>keyOf(x)===p.k);return f?{id:p.id,date:f.date,from:f.from,to:f.to,added:p.added}:null;}).filter(Boolean).sort((a,b)=>a.date.localeCompare(b.date)||a.added-b.added)};
