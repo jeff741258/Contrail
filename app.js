@@ -1040,7 +1040,7 @@ window.ContrailApp={getDoc,setDoc,keyOf,parseEmails,reviewCandidates,dropNumberl
   photoIds:()=>photos.map(p=>p.id),addPhotoMeta,removePhotoMeta,refreshLog,flightLabel,wipeLocal,wipeSeen,
   counts:()=>({flights:real().length,photos:photos.length}),findAircraft,acList:()=>AC_LIST.slice(),
   flights:()=>real().map(f=>Object.assign({},f)),
-  airlineName:c=>AL[c]||c,airportCity:c=>AP[c]?AP[c].city:c,photosFor,
+  airlineName:c=>AL[c]||c,airportCity:c=>AP[c]?AP[c].city:c,airportLatLon:c=>AP[c]?[AP[c].lat,AP[c].lon]:null,photosFor,
   // Hangar registrations: regsFor(k) lists them; addReg returns false if it's already there
   regsFor:k=>regs.filter(r=>r.k===k).sort((a,b)=>a.added-b.added).map(r=>Object.assign({},r)),
   addReg(k,reg){if(!addRegTo(k,reg))return false;save();refreshLog();return true;}, // "C FIVM", "CFIVM" and "C-FIVM" are the same plane
