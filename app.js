@@ -67,7 +67,8 @@ function dedupeTrips(){
     const keep=g[0],kk=keyOf(keep);
     g.slice(1).forEach(d=>{
       const dk=keyOf(d);
-      if(!keep.ac&&d.ac){keep.ac=d.ac;keep.edited=Math.max(keep.edited||0,now);}
+      if(!keep.ac&&d.ac){keep.ac=d.ac;if(d.acv)keep.acv=1;keep.edited=Math.max(keep.edited||0,now);}
+      else if(d.acv&&!keep.acv&&keep.ac===d.ac){keep.acv=1;keep.edited=Math.max(keep.edited||0,now);}
       photos.forEach(p=>{if(p.k===dk)p.k=kk;});
       removed=removed.filter(r=>r.k!==dk);removed.push({k:dk,at:now});
       flights=flights.filter(f=>f!==d);merged++;
@@ -324,6 +325,7 @@ function render(){
   $("sAirports").textContent=aps.size;$("sAirlines").textContent=als.size;$("sCountries").textContent=ccs.size;
   document.querySelectorAll(".unit button").forEach(b=>b.setAttribute("aria-pressed",String(b.id==="u-"+unit)));
   renderRecords(list,km);renderLog(list);drawMap(list);
+  if(window.ContrailHangar)window.ContrailHangar.refresh();
 }
 function fmtDate(iso){const [y,m,d]=iso.split("-");return new Date(+y,+m-1,+d).toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"})}
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
@@ -699,7 +701,7 @@ function addFlightsIds(arr){
   const trips=new Set(flights.filter(f=>!f.example).map(tripKey));
   const now=Date.now();
   const ids=[];
-  arr.forEach(f=>{const k=keyOf(f);if(have.has(k)||trips.has(tripKey(f)))return;have.add(k);trips.add(tripKey(f));const id=uid();ids.push(id);flights.push({id,airline:f.airline||"",num:f.num||"",from:f.from,to:f.to,date:f.date,ac:f.ac||"",added:now});n++;});
+  arr.forEach(f=>{const k=keyOf(f);if(have.has(k)||trips.has(tripKey(f)))return;have.add(k);trips.add(tripKey(f));const id=uid();ids.push(id);flights.push(Object.assign({id,airline:f.airline||"",num:f.num||"",from:f.from,to:f.to,date:f.date,ac:f.ac||"",added:now},f.ac&&f.acv?{acv:1}:{}));n++;});
   if(ids.length){save();render();}
   return ids;
 }
@@ -736,7 +738,8 @@ $("log").addEventListener("click",e=>{
 $("log").addEventListener("submit",e=>{
   const fm=e.target.closest(".acform");if(!fm)return;e.preventDefault();
   const f=flights.find(x=>x.id===fm.dataset.id);const v=fm.querySelector(".acin").value.trim();
-  if(f){f.ac=v?(findAircraft(v)||v):"";f.edited=Date.now();}
+  if(f){const nv=v?(findAircraft(v)||v):"";if(nv!==f.ac)delete f.acv; // typed by hand: seen, not caught
+    f.ac=nv;f.edited=Date.now();}
   editAc=null;save();render();
   const b=$("log").querySelector('.acb[data-id="'+fm.dataset.id+'"]');if(b)b.focus();
 });
@@ -874,11 +877,12 @@ function normalizeRow(r){
   const f={from:String(r.from||r.f||"").toUpperCase(),to:String(r.to||r.t||"").toUpperCase(),date:String(r.date||r.d||""),
     airline:String(r.airline||r.a||"").toUpperCase(),num:String(r.flight||r.num||r.n||""),added:Number(r.added)||0,
     ac:String(r.aircraft||r.ac||"").slice(0,40),edited:Number(r.edited)||0};
+  if(f.ac&&(r.aircraftConfirmed||r.acv))f.acv=1; // aircraft confirmed by an inbox import
   return AP[f.from]&&AP[f.to]&&f.from!==f.to&&/^\d{4}-\d{2}-\d{2}$/.test(f.date)?f:null;
 }
 function getDoc(){
   return {app:"Contrail",format:2,updatedAt:Date.now(),wipedAt:wipeSeen(),
-    flights:real().slice().sort((a,b)=>a.date.localeCompare(b.date)).map(f=>Object.assign({date:f.date,airline:f.airline||"",flight:f.num||"",from:f.from,to:f.to,added:f.added||0},f.ac?{aircraft:f.ac}:{},f.edited?{edited:f.edited}:{})),
+    flights:real().slice().sort((a,b)=>a.date.localeCompare(b.date)).map(f=>Object.assign({date:f.date,airline:f.airline||"",flight:f.num||"",from:f.from,to:f.to,added:f.added||0},f.ac?{aircraft:f.ac}:{},f.ac&&f.acv?{aircraftConfirmed:true}:{},f.edited?{edited:f.edited}:{})),
     photos:photos.filter(p=>real().some(f=>keyOf(f)===p.k)).map(p=>({id:p.id,k:p.k,added:p.added})),
     removed:removed.slice(-1000)};
 }
@@ -932,7 +936,7 @@ function dropNumberless(list){
   list.forEach(f=>{const t=tripKey(f),b=best.get(t);
     const score=x=>(x.airline&&x.num?2:0)+(x.ac?1:0);
     if(!b)best.set(t,f);
-    else{const keep=score(f)>score(b)?f:b,other=keep===f?b:f;if(!keep.ac&&other.ac)keep.ac=other.ac;best.set(t,keep);}});
+    else{const keep=score(f)>score(b)?f:b,other=keep===f?b:f;if(!keep.ac&&other.ac){keep.ac=other.ac;if(other.acv)keep.acv=1;}else if(keep.ac&&keep.ac===other.ac&&other.acv)keep.acv=1;best.set(t,keep);}});
   return list.filter(f=>best.get(tripKey(f))===f);
 }
 // Adds imported flights straight to the log. Returns {ids, already} so the import can offer Undo.
@@ -941,10 +945,14 @@ function addImported(list){
   const fresh=list.filter(f=>!have.has(keyOf(f))&&!trips.has(tripKey(f)));
   // Flights already logged without an aircraft get it from the email (matched by flight or by route and day).
   let filled=0;const byKey=new Map(real().map(f=>[keyOf(f),f]));const now=Date.now();
-  list.forEach(f=>{const g=byKey.get(keyOf(f))||trips.get(tripKey(f));if(g&&!g.ac&&f.ac){g.ac=f.ac;g.edited=now;filled++;}});
+  // An inbox email also confirms an aircraft that was typed in by hand, when it names the same type.
+  let confirmed=0;
+  list.forEach(f=>{const g=byKey.get(keyOf(f))||trips.get(tripKey(f));if(!g||!f.ac)return;
+    if(!g.ac){g.ac=f.ac;if(f.acv)g.acv=1;g.edited=now;filled++;}
+    else if(f.acv&&!g.acv&&g.ac===f.ac){g.acv=1;g.edited=now;confirmed++;}});
   const ids=addFlightsIds(fresh);
-  if(filled&&!ids.length){save();render();}
-  return {ids,already:list.length-fresh.length,filled};
+  if((filled||confirmed)&&!ids.length){save();render();}
+  return {ids,already:list.length-fresh.length,filled,confirmed};
 }
 function removeFlights(ids){
   const set=new Set(ids),now=Date.now();
@@ -955,7 +963,9 @@ function removeFlights(ids){
 }
 window.ContrailApp={getDoc,setDoc,keyOf,parseEmails,reviewCandidates,dropNumberless,addImported,removeFlights,
   photoIds:()=>photos.map(p=>p.id),addPhotoMeta,removePhotoMeta,refreshLog,flightLabel,wipeLocal,wipeSeen,
-  counts:()=>({flights:real().length,photos:photos.length}),findAircraft,
+  counts:()=>({flights:real().length,photos:photos.length}),findAircraft,acList:()=>AC_LIST.slice(),
+  flights:()=>real().map(f=>Object.assign({},f)),
+  openLog:(filter)=>{openLogWith(filter);location.hash="log";},
   // Total distance flown (real flights, or the examples while the log is empty) for the Space page.
   totalKm:()=>{const l=real().length?real():flights;return l.reduce((s,f)=>s+distKm(f.from,f.to),0);},
   fmtDist:(km,dec)=>fmtDist(km,dec),unit:()=>unit,isExample:()=>!real().length,
