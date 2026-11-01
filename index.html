@@ -5,10 +5,15 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Contrail Flight Log</title>
 <meta name="description" content="Count your flights from airline emails and keep your log in Google Drive, OneDrive or iCloud.">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#14213A">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="styles.css?v=20261031d">
+<link rel="stylesheet" href="styles.css?v=20261031e">
 </head>
 <body>
 <div class="wrap">
@@ -17,6 +22,7 @@
     <div class="unit" role="group" aria-label="Distance unit">
       <button id="u-mi" aria-pressed="true">mi</button><button id="u-km" aria-pressed="false">km</button>
     </div>
+    <button class="btn install" id="installBtn" type="button" hidden>Install app</button>
   </header>
 
   <div id="exNote" class="example-note" hidden>
@@ -176,17 +182,27 @@
   <footer><span id="footStore">Contrail keeps your log in this browser and, once you sign in, in your own cloud account.</span> Distances are great-circle, airport to airport; hours aloft are estimated at 800 km/h plus 30 minutes per flight. The parser knows about 230 airports and 80 airlines. Coastlines from Natural Earth.</footer>
 </div>
 
-<script src="land.js?v=20261031d"></script>
-<script src="app.js?v=20261031d"></script>
-<script src="config.js?v=20261031d"></script>
-<script src="common.js?v=20261031d"></script>
-<script src="msauth.js?v=20261031d"></script>
-<script src="google.js?v=20261031d"></script>
-<script src="microsoft.js?v=20261031d"></script>
-<script src="apple.js?v=20261031d"></script>
-<script src="sync.js?v=20261031d"></script>
-<script src="mail.js?v=20261031d"></script>
-<script src="photos.js?v=20261031d"></script>
-<script src="privacy.js?v=20261031d"></script>
+<script src="land.js?v=20261031e"></script>
+<script src="app.js?v=20261031e"></script>
+<script src="config.js?v=20261031e"></script>
+<script src="common.js?v=20261031e"></script>
+<script src="msauth.js?v=20261031e"></script>
+<script src="google.js?v=20261031e"></script>
+<script src="microsoft.js?v=20261031e"></script>
+<script src="apple.js?v=20261031e"></script>
+<script src="sync.js?v=20261031e"></script>
+<script src="mail.js?v=20261031e"></script>
+<script src="photos.js?v=20261031e"></script>
+<script src="privacy.js?v=20261031e"></script>
+<script>
+// Installable app: offline support plus an "Install app" button where the browser offers one (Chrome on Android).
+(function(){
+  if("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+  let prompt = null; const btn = document.getElementById("installBtn");
+  addEventListener("beforeinstallprompt", e => { e.preventDefault(); prompt = e; btn.hidden = false; });
+  btn.addEventListener("click", async () => { if(!prompt) return; prompt.prompt(); await prompt.userChoice.catch(() => {}); prompt = null; btn.hidden = true; });
+  addEventListener("appinstalled", () => { btn.hidden = true; });
+})();
+</script>
 </body>
 </html>

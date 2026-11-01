@@ -276,3 +276,10 @@ body.noscroll{overflow:hidden}
 .wipe-cloud input{margin-top:3px;accent-color:var(--danger)}
 .wipe-type{font-size:12px;color:var(--muted);font-family:var(--f-mono);letter-spacing:.06em;text-transform:uppercase}
 #wipeType{border:1px solid var(--line);border-radius:8px;background:var(--bg);padding:8px 10px;font-family:var(--f-mono);font-size:15px;width:100%;max-width:220px}
+
+/* install button + installed app */
+.mast{align-items:center}
+.btn.install{padding:5px 12px;font-size:13px;border-color:var(--accent);color:var(--accent);background:transparent;margin-left:auto}
+@media (display-mode: standalone){ .btn.install{display:none} }
+.mast .unit{order:2}
+.mast .btn.install{order:1}
