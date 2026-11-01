@@ -4,9 +4,15 @@
 // None of these values are secret: they identify your app, and each provider only
 // accepts sign-ins from the web addresses you registered.
 window.CONTRAIL_CONFIG = {
+  sync: {
+    // While the app is open and on screen, check the cloud for changes from other devices this often.
+    // Minimum 15. Each check is one or two small requests to the user's own cloud account.
+    intervalSeconds: 60
+  },
   google: {
     // Google Cloud Console > APIs & Services > Credentials > OAuth client ID (Web application)
-    clientId: "",
+    // Project "Contrail" (contrail-513400); allowed origins: https://jeff741258.github.io, http://localhost:8080
+    clientId: "684530236428-brilcs1ohjvvf1av78qsg8l0380fqqgs.apps.googleusercontent.com",
     // Show "Import from Gmail". Needs the gmail.readonly scope on your consent screen (see README).
     gmailImport: true
   },
