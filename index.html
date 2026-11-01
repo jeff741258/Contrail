@@ -18,7 +18,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="styles.css?v=20261031zq">
+<link rel="stylesheet" href="styles.css?v=20261031zr">
 </head>
 <body>
 <div class="shell">
@@ -78,8 +78,8 @@
     <div class="view" data-view="map" hidden>
       <div id="routeMapTab"></div>
       <section class="map-export">
-        <div><h2>Export map</h2><p class="hint">Saves the map exactly as shown (period, airport, zoom) as an image, with its stats. With no airport selected, a list of your airports is added underneath.</p></div>
-        <button class="btn" id="mapExport" type="button">Export map image</button>
+        <div><h2>Share map</h2><p class="hint">Makes an image of the map exactly as shown (period, airport, zoom), with its stats, and opens your share options. On a computer it saves the image instead. With no airport selected, a list of your airports is added underneath.</p></div>
+        <button class="btn" id="mapExport" type="button"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="vertical-align:-3px;margin-right:6px"><path d="M12 15V3M7 8l5-5 5 5M5 13v7h14v-7"/></svg>Share map</button>
         <p class="msg" id="mapExMsg" role="status"></p>
       </section>
     </div>
@@ -253,7 +253,7 @@
 
     <div class="view" data-view="space" hidden>
       <section class="space" id="space" aria-labelledby="spTitle">
-        <div class="sp-top"><a class="sp-back" href="#overview">‹ Overview</a><button class="sp-ex" id="spExport" type="button">Export image</button></div>
+        <div class="sp-top"><a class="sp-back" href="#overview">‹ Overview</a><button class="sp-ex" id="spExport" type="button"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="vertical-align:-2px;margin-right:5px"><path d="M12 15V3M7 8l5-5 5 5M5 13v7h14v-7"/></svg>Share</button></div>
         <p class="sp-exmsg" id="spExMsg" role="status"></p>
         <div class="sp-head">
           <span class="label">Total distance flown</span>
@@ -281,19 +281,19 @@
   </nav>
 </div>
 
-<script src="airports.js?v=20261031zq"></script>
-<script src="land.js?v=20261031zq"></script>
-<script src="app.js?v=20261031zq"></script>
-<script src="config.js?v=20261031zq"></script>
-<script src="common.js?v=20261031zq"></script>
-<script src="msauth.js?v=20261031zq"></script>
-<script src="google.js?v=20261031zq"></script>
-<script src="microsoft.js?v=20261031zq"></script>
-<script src="apple.js?v=20261031zq"></script>
-<script src="sync.js?v=20261031zq"></script>
-<script src="mail.js?v=20261031zq"></script>
-<script src="photos.js?v=20261031zq"></script>
-<script src="privacy.js?v=20261031zq"></script>
+<script src="airports.js?v=20261031zr"></script>
+<script src="land.js?v=20261031zr"></script>
+<script src="app.js?v=20261031zr"></script>
+<script src="config.js?v=20261031zr"></script>
+<script src="common.js?v=20261031zr"></script>
+<script src="msauth.js?v=20261031zr"></script>
+<script src="google.js?v=20261031zr"></script>
+<script src="microsoft.js?v=20261031zr"></script>
+<script src="apple.js?v=20261031zr"></script>
+<script src="sync.js?v=20261031zr"></script>
+<script src="mail.js?v=20261031zr"></script>
+<script src="photos.js?v=20261031zr"></script>
+<script src="privacy.js?v=20261031zr"></script>
 <script>
 // theme switch: Auto / Light / Dark, remembered on this device
 (function(){
@@ -310,8 +310,8 @@
   apply(root.dataset.theme||"auto");
 })();
 </script>
-<script src="hangar.js?v=20261031zq"></script>
-<script src="space.js?v=20261031zq"></script>
+<script src="hangar.js?v=20261031zr"></script>
+<script src="space.js?v=20261031zr"></script>
 <script>
 // Tabs: Overview, Map, Flight log, Hangar, Add flights, Account. The open tab is in the address (#log etc.) so it can be bookmarked.
 (function(){

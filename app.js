@@ -1110,17 +1110,16 @@ function exportMapImage(){
   x.fillStyle=C.muted;x.font="12px "+FM;x.fillText("Made with Contrail · "+fmtDate(localIso()),PAD,H-PAD+14);
   cv.toBlob(b=>{
     if(!b){mapExSay("Couldn't create the image. Try again.",true);return;}
-    const a=document.createElement("a");a.href=URL.createObjectURL(b);
-    a.download="contrail-map-"+(sel?sel.toLowerCase()+"-":"")+mapPeriod+"-"+localIso()+".png";
-    document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1500);
-    mapExSay("Downloaded "+a.download+".");
+    const name="contrail-map-"+(sel?sel.toLowerCase()+"-":"")+mapPeriod+"-"+localIso()+".png";
+    window.ContrailUtil.shareImage(b,name,"My flight map",sel?"My flights at "+sel+" ✈️":"My flight routes ✈️")
+      .then(r=>mapExSay(r==="saved"?"Saved "+name+".":r==="shared"?"Shared.":""));
   },"image/png");
 }
 function rgba(c,a){const m=/^#?([0-9a-f]{6})$/i.exec(c.trim());if(!m)return c;const n=parseInt(m[1],16);return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`;}
 function rr(x,X,Y,w,h,r){x.beginPath();x.moveTo(X+r,Y);x.arcTo(X+w,Y,X+w,Y+h,r);x.arcTo(X+w,Y+h,X,Y+h,r);x.arcTo(X,Y+h,X,Y,r);x.arcTo(X,Y,X+w,Y,r);x.closePath();}
 function localIso(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
 function mapExSay(t,err){const m=$("mapExMsg");m.textContent=t;m.classList.toggle("err",!!err);}
-$("mapExport").addEventListener("click",()=>{try{exportMapImage();}catch(e){mapExSay("The export didn't work ("+((e&&e.message)||"error")+").",true);}});
+$("mapExport").addEventListener("click",()=>{mapExSay("Making the image…");try{exportMapImage();}catch(e){mapExSay("The export didn't work ("+((e&&e.message)||"error")+").",true);}});
 
 load();render();
 })();

@@ -157,9 +157,9 @@
       const msg = $("spExMsg");
       if(!b){ msg.textContent = "Couldn't create the image. Try again."; return; }
       const d = new Date(), iso = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
-      const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = "contrail-to-the-moon-" + iso + ".png";
-      document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
-      msg.textContent = "Downloaded " + a.download + ".";
+      const name = "contrail-to-the-moon-" + iso + ".png";
+      window.ContrailUtil.shareImage(b, name, "To the Moon", "I've flown " + big(total) + " ✈️🌙")
+        .then(r => { msg.textContent = r === "saved" ? "Saved " + name + "." : r === "shared" ? "Shared." : ""; });
     }, "image/png");
   }
   const plural = (n, w) => n + " " + w + (n === 1 ? "" : "s");
