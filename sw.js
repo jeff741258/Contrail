@@ -2,9 +2,9 @@
 // Contrail's own files are fetched fresh from the network whenever there's a connection, so uploads to
 // GitHub reach the installed app right away; the saved copy is only used when offline (or the network
 // is slow). Sign-in, Gmail, Drive and OneDrive requests are never cached.
-const CACHE = "contrail-v2";
+const CACHE = "contrail-v3";
 const APP_FILES = [
-  "./", "index.html", "styles.css", "land.js", "app.js", "config.js", "common.js", "msauth.js",
+  "./", "index.html", "styles.css", "airports.js", "land.js", "app.js", "config.js", "common.js", "msauth.js",
   "google.js", "microsoft.js", "apple.js", "sync.js", "mail.js", "photos.js", "privacy.js", "space.js",
   "manifest.webmanifest", "icon-192.png", "icon-512.png", "icon-maskable-512.png"
 ];

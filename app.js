@@ -6,8 +6,33 @@ const AP = {};
 AP_RAW.split(";").forEach(s=>{const p=s.split(" ");AP[p[0]]={lat:+p[1],lon:+p[2],cc:p[3],city:p.slice(4).join(" ")};});
 
 const AL = {AS:"Alaska",AA:"American",UA:"United",DL:"Delta",WN:"Southwest",B6:"JetBlue",NK:"Spirit",F9:"Frontier",HA:"Hawaiian",G4:"Allegiant",SY:"Sun Country",MX:"Breeze",AC:"Air Canada",WS:"WestJet",PD:"Porter",F8:"Flair",TS:"Air Transat",AM:"Aeroméxico",Y4:"Volaris",VB:"Viva Aerobus",CM:"Copa",AV:"Avianca",LA:"LATAM",AR:"Aerolíneas Argentinas",G3:"GOL",AD:"Azul",BA:"British Airways",VS:"Virgin Atlantic",AF:"Air France",KL:"KLM",LH:"Lufthansa",LX:"SWISS",OS:"Austrian",SN:"Brussels Airlines",IB:"Iberia",VY:"Vueling",UX:"Air Europa",TP:"TAP Air Portugal",AZ:"ITA Airways",EI:"Aer Lingus",SK:"SAS",AY:"Finnair",FI:"Icelandair",DY:"Norwegian",LO:"LOT",TK:"Turkish",U2:"easyJet",FR:"Ryanair",W6:"Wizz Air",EK:"Emirates",QR:"Qatar Airways",EY:"Etihad",LY:"El Al",RJ:"Royal Jordanian",SV:"Saudia",MS:"EgyptAir",AT:"Royal Air Maroc",ET:"Ethiopian",KQ:"Kenya Airways",SA:"South African",CX:"Cathay Pacific",SQ:"Singapore Airlines",TR:"Scoot",NH:"ANA",JL:"JAL",MM:"Peach",KE:"Korean Air",OZ:"Asiana",BR:"EVA Air",CI:"China Airlines",CA:"Air China",MU:"China Eastern",CZ:"China Southern",HX:"Hong Kong Airlines",TG:"Thai",MH:"Malaysia Airlines",AK:"AirAsia",GA:"Garuda",PR:"Philippine Airlines",VN:"Vietnam Airlines",VJ:"VietJet",AI:"Air India","6E":"IndiGo",QF:"Qantas",JQ:"Jetstar",VA:"Virgin Australia",NZ:"Air New Zealand",FJ:"Fiji Airways",TN:"Air Tahiti Nui"};
+const TRUSTED_AL = new Set(Object.keys(AL)); // these may be written with a space ("AC 8767")
 const AL_NAMES = {"Alaska":"AS","United":"UA","Delta":"DL","American":"AA","Southwest":"WN","JetBlue":"B6","Air Canada":"AC","WestJet":"WS","Spirit":"NK","Frontier":"F9","Hawaiian":"HA","Allegiant":"G4","Porter":"PD","Lufthansa":"LH","British Airways":"BA","Air France":"AF","KLM":"KL","Emirates":"EK","Qantas":"QF"};
 // Airport codes that are also common English words: only accept them with route-like punctuation around them.
+// The ~230 airports above are "trusted": their codes count wherever they appear. The thousands added
+// from airports.js only count with route punctuation around them, e.g. "(KOJ)" or "KOJ →".
+const CURATED = new Set(Object.keys(AP));
+const AP_NAMES = {}; // lower-case city or airport name -> [{code, size, kind}]
+if(typeof AIRPORT_DATA==="string"){
+  AIRPORT_DATA.split(";").forEach(s=>{const [c,lat,lon,cc,city,name,size,kw]=s.split("|");
+    if(!AP[c])AP[c]={lat:+lat,lon:+lon,cc,city:city||name};
+    AP[c].size=+size||1;AP[c].name=name;AP[c].muni=city;AP[c].kw=kw?kw.split(","):[];});
+}
+if(typeof AIRLINE_DATA==="string")AIRLINE_DATA.split(";").forEach(s=>{const i=s.indexOf("|"),c=s.slice(0,i);if(!AL[c])AL[c]=s.slice(i+1);});
+const ICAO_AL = typeof AIRLINE_ICAO==="object"?AIRLINE_ICAO:{};
+// 3-letter words that look like codes but usually aren't (currencies, days, months, email words)
+const NOT_CODES = new Set("USD CAD EUR GBP JPY AUD NZD CHF CNY HKD SGD KRW INR MXN BRL THB TWD SEK NOK DKK PLN AED ZAR PHP IDR MYR VND MON TUE WED THU FRI SAT SUN JAN FEB MAR APR MAY JUN JUL AUG SEP OCT NOV DEC THE AND FOR YOU ALL NEW ARE NOT TAX FEE BAG PNR ETA ETD UTC GMT PST PDT EST EDT CST CDT MST MDT JST KST CET VIP FAQ PDF APP WEB VAT NET PER ONE TWO OUT OFF YES".split(" "));
+function addName(key,code,kind){key=key.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9 ]/g," ").replace(/\s+/g," ").trim();
+  if(key.length<4)return;(AP_NAMES[key]=AP_NAMES[key]||[]).push({code,size:AP[code].size||2,kind});}
+Object.keys(AP).forEach(c=>{const a=AP[c];
+  if(a.muni)addName(a.muni,c,"city"); else addName(a.city,c,"city");
+  if(a.name&&a.name!==a.muni)addName(a.name,c,"name");
+  if(CURATED.has(c)&&a.city!==a.muni)addName(a.city,c,"name"); // e.g. "Tokyo Haneda"
+  (a.kw||[]).forEach(k=>addName(k,c,"name"));
+  if(a.name)a.name.split(" ").forEach(w=>{if(w.length>=5&&a.muni&&!a.muni.toLowerCase().includes(w.toLowerCase()))addName(w,c,"word");});
+});
+// Words that are also place names but in an email are almost always something else.
+const NOT_PLACES = new Set(["class","economy","premium","business","first","seat","seats","number","sector","flight","flights","from","date","total","gate","terminal","mobile","nice","split","male","page","price","reading","orange","bath","victoria","eagle","independence","liberal","hope","marathon","friendly","grand","union","central","national","regional","north","south","east","west","new","port","saint","fort","lake","island","islands","city","valley","beach","bay","river","mount","general","airport","international","passenger","reservation","details","payment","adult","child","arrival","departure","depart","arrive","operated","boarding","confirmation","booking","receipt","itinerary","dear"]);
 const AMBIG = new Set(["CAN","PER","ADD","MAN","SEA","DEN","BOS","MIA","LAS","ANC","BER","OPO","LOS","SHA","FAT","NAN","JAC","HOU","OKA","AUS","PVD","LIN","BUD","CUN","RIC","SAT"]);
 const COUNTRY_NAMES = {};
 
@@ -76,11 +101,45 @@ function allDates(s,defYear,off){
 function findDate(s,defYear){const d=allDates(s,defYear);return d.length?d[0].v:null;}
 function findCodes(s){
   const out=[];const rx=/\b[A-Z]{3}\b/g;let m;
-  while((m=rx.exec(s))){const c=m[0]; if(!AP[c])continue;
-    if(AMBIG.has(c)){const before=s.slice(Math.max(0,m.index-3),m.index),after=s.slice(m.index+3,m.index+7);
+  while((m=rx.exec(s))){const c=m[0]; if(!AP[c]||NOT_CODES.has(c))continue;
+    if(AMBIG.has(c)||!CURATED.has(c)){const before=s.slice(Math.max(0,m.index-3),m.index),after=s.slice(m.index+3,m.index+7);
       const strong=/[(\-–—→>✈]\s*$/.test(before)||/^\s*[)\-–—→>✈]/.test(after)||/^\s*to\s/i.test(after);
       if(!strong)continue;}
     if(!out.length||out[out.length-1]!==c)out.push(c);}
+  return out;
+}
+// Finds airports written as names, in order. A city with several airports is resolved by a more specific
+// name right next to it ("Tokyo (Haneda)") or else by the biggest airport. Only capitalized words count.
+function findPlaces(s){
+  const toks=[];const rx=/[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'.-]*/g;let m;
+  while((m=rx.exec(s)))toks.push({w:m[0],i:m.index,e:m.index+m[0].length});
+  const norm=w=>w.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]/g,"");
+  const hits=[];
+  for(let t=0;t<toks.length;t++){
+    if(!/^[A-ZÀ-Þ]/.test(toks[t].w))continue;
+    for(let n=4;n>=1;n--){
+      if(t+n>toks.length)continue;
+      const words=toks.slice(t,t+n);
+      if(n>1&&s.slice(words[0].i,words[n-1].e).includes("\n"))continue;
+      const key=words.map(x=>norm(x.w)).join(" ");
+      if(n===1&&NOT_PLACES.has(key))continue;
+      const c=AP_NAMES[key];
+      if(c){hits.push({i:words[0].i,e:words[n-1].e,c,key});t+=n-1;break;}
+    }
+  }
+  // merge "City (Specific)" pairs into the specific airport
+  const out=[];
+  for(let k=0;k<hits.length;k++){
+    const h=hits[k],nx=hits[k+1];
+    let cands=h.c;
+    if(nx&&nx.i-h.e<=3){
+      const both=h.c.filter(x=>nx.c.some(y=>y.code===x.code));
+      if(both.length){cands=both;k++;}
+    }
+    // biggest airport first; then the one actually in that city; then the better-known one
+    const best=cands.slice().sort((a,b)=>b.size-a.size||(b.kind==="city")-(a.kind==="city")||(CURATED.has(b.code)-CURATED.has(a.code)))[0];
+    if(!out.length||out[out.length-1]!==best.code)out.push(best.code);
+  }
   return out;
 }
 function cleanEmail(t){
@@ -139,13 +198,22 @@ const AC_LIST=[...new Set(Object.values(AC_CODES))].sort();
 function parseEmails(raw,refDate){
   const text=cleanEmail(raw);
   const yrM=text.match(/\b(20[2-3]\d)\b/); const defYear=refDate?"1900":yrM?yrM[1]:String(new Date().getFullYear());
-  const codes=Object.keys(AL).sort((a,b)=>b.length-a.length);
+  const codes=[...TRUSTED_AL].sort((a,b)=>b.length-a.length);
   const fx=new RegExp("\\b("+codes.join("|")+")\\s?(\\d{1,4})\\b","g");
   const nx=new RegExp("\\b("+Object.keys(AL_NAMES).join("|")+")(?:\\s+Air(?:lines|ways)?)?\\s+(?:Flight|flight|FLIGHT)\\s*(?:#|No\\.?)?\\s*(\\d{1,4})\\b","g");
   const hits=[];let m;
   while((m=fx.exec(text))){
     const pre=text.slice(Math.max(0,m.index-6),m.index);
     if(m[1]==="AM"&&/\d[:.]\d{2}\s*$/.test(pre))continue;            // "10:05 AM 12" is a time, not a flight
+    hits.push({i:m.index,end:m.index+m[0].length,airline:m[1],num:m[2]});}
+  // "JAL643", "ANA 7", "KAL76": 3-letter airline codes; and less common 2-letter codes written together ("MM502")
+  const ix=new RegExp("\\b("+Object.keys(ICAO_AL).filter(c=>!NOT_CODES.has(c)).join("|")+")\\s?(\\d{1,4})\\b","g");
+  while((m=ix.exec(text))){const ai=ICAO_AL[m[1]];if(!hits.some(h=>h.i===m.index))hits.push({i:m.index,end:m.index+m[0].length,airline:ai,num:m[2]});}
+  const extra=Object.keys(AL).filter(c=>!TRUSTED_AL.has(c)&&/^[A-Z0-9]{2}$/.test(c)&&/[A-Z]/.test(c));
+  const ex=new RegExp("\\b("+extra.join("|")+")(\\d{2,4})\\b","g");
+  while((m=ex.exec(text))){
+    if(hits.some(h=>m.index>=h.i&&m.index<h.end))continue;
+    if(findAircraft(text.slice(Math.max(0,m.index-8),m.index+10)))continue; // "A320", "B737" are aircraft, not flights
     hits.push({i:m.index,end:m.index+m[0].length,airline:m[1],num:m[2]});}
   while((m=nx.exec(text))){const ai=AL_NAMES[m[1]]; if(!hits.some(h=>h.airline===ai&&h.num===m[2]))hits.push({i:m.index,end:m.index+m[0].length,airline:ai,num:m[2]});}
   hits.sort((a,b)=>a.i-b.i);
@@ -162,6 +230,7 @@ function parseEmails(raw,refDate){
     if(cs.length<2)cs=findCodes(fwd);
     if(cs.length<2)cs=findCodes(back);
     if(cs.length<2)cs=findCodes(back+" "+fwd);
+    if(cs.length<2){const ps=findPlaces(line+"\n"+fwd);if(ps.length>=2)cs=ps;}
     if(cs.length<2)return;
     const from=cs[0],to=cs.find(c=>c!==from); if(!to)return;
     // date: same line first, otherwise the nearest date within this leg's stretch of text

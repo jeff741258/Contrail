@@ -31,7 +31,8 @@
 
   // Search terms airlines and travel agencies use in booking, check-in and receipt emails.
   const TERMS = ["boarding pass", "itinerary", "e-ticket", "eticket", "flight confirmation", "confirmation code",
-                 "record locator", "trip confirmation", "your flight", "flight receipt", "check in for your flight"];
+                 "record locator", "trip confirmation", "your flight", "flight receipt", "check in for your flight",
+                 "flight details", "reservation details", "reservation number", "booking reference", "booking confirmation"];
 
   // Runs worker over items a few at a time until done or the job is stopped. Counts failures on the job.
   async function pool(items, worker, job, onEach){
