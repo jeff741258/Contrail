@@ -7,6 +7,8 @@ window.CONTRAIL_CONFIG = {
   // After an inbox import, add flights already flown straight to the log (with Undo).
   // Set to false to review every flight before it's added.
   autoAddImported: true,
+  // Most emails a single Gmail or Outlook import reads.
+  maxEmailsPerImport: 5000,
   sync: {
     // While the app is open and on screen, check the cloud for changes from other devices this often.
     // Minimum 15. Each check is one or two small requests to the user's own cloud account.

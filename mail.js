@@ -11,29 +11,39 @@
   const App = window.ContrailApp;
   const $ = id => document.getElementById(id);
 
-  const MAX_EMAILS = 400; // per scan
+  // Most emails one import will read. Each email is checked for flights as soon as it arrives and
+  // then dropped, so a large import doesn't hold thousands of emails in memory.
+  const MAX_EMAILS = Number(CFG.maxEmailsPerImport) || 5000;
   const CONCURRENCY = 3; // Gmail refuses too many simultaneous requests from one user
   const sleep = ms => new Promise(r => setTimeout(r, ms));
-  const since = years => { const d = new Date(); d.setFullYear(d.getFullYear() - years); return d; };
+  const yearsAgo = years => { const d = new Date(); d.setFullYear(d.getFullYear() - years); return d; };
+  const LAST_KEY = source => "contrail.mail.last." + source; // when the last complete import of this inbox ran
+
+  // range: a number of years, or "since" for emails newer than the last complete import.
+  function startDate(source, range){
+    if(range === "since"){
+      let last = null; try{ last = Number(localStorage.getItem(LAST_KEY(source))) || null; }catch(_){}
+      if(last) return new Date(last - 3 * 864e5); // a few days of overlap; duplicates are skipped anyway
+      return yearsAgo(5); // first import from this inbox
+    }
+    return yearsAgo(Number(range) || 2);
+  }
 
   // Search terms airlines and travel agencies use in booking, check-in and receipt emails.
   const TERMS = ["boarding pass", "itinerary", "e-ticket", "eticket", "flight confirmation", "confirmation code",
                  "record locator", "trip confirmation", "your flight", "flight receipt", "check in for your flight"];
 
-  // Runs worker over items a few at a time. Returns the results plus how many items failed.
-  async function pool(items, worker, onEach){
-    const out = new Array(items.length); let next = 0, done = 0, failed = 0;
+  // Runs worker over items a few at a time until done or the job is stopped. Counts failures on the job.
+  async function pool(items, worker, job, onEach){
+    let next = 0, done = 0;
     async function run(){
-      while(next < items.length){
-        const i = next++;
-        try{ out[i] = await worker(items[i]); }catch(e){ if(e && e.code === "auth") throw e; out[i] = null; failed++; }
+      while(next < items.length && !job.stopped){
+        const item = items[next++];
+        try{ await worker(item); }catch(e){ if(e && e.code === "auth") throw e; job.failed++; }
         onEach(++done);
       }
     }
     await Promise.all(Array.from({ length: Math.min(CONCURRENCY, items.length) }, run));
-    const results = out.filter(Boolean);
-    results.failed = failed;
-    return results;
   }
 
   // ---------- Gmail ----------
@@ -97,25 +107,29 @@
     return html || plain; // airline HTML keeps the itinerary layout; app.js strips the tags
   }
 
-  async function scanGmail(years, progress){
-    const after = since(years);
+  // Reads matching emails and hands each one to job.consume(). Returns how many were read.
+  async function scanGmail(after, job, progress){
     const q = "(flight OR flights OR airline) {" + TERMS.map(t => t.includes(" ") ? '"' + t + '"' : t).join(" ") + "}" +
               " after:" + after.getFullYear() + "/" + (after.getMonth() + 1) + "/" + after.getDate() +
               " -in:spam -in:trash -category:promotions -category:social"; // skip fare sales and newsletters
     progress("Searching Gmail…");
     const ids = []; let page = "";
     do{
-      const r = await gapi("messages?maxResults=100&q=" + encodeURIComponent(q) + (page ? "&pageToken=" + page : ""));
+      const r = await gapi("messages?maxResults=500&q=" + encodeURIComponent(q) + (page ? "&pageToken=" + page : ""));
       (r.messages || []).forEach(m => ids.push(m.id));
       page = r.nextPageToken || "";
       progress("Searching Gmail… " + ids.length + " matching emails");
-    }while(page && ids.length < MAX_EMAILS);
+    }while(page && ids.length < MAX_EMAILS && !job.stopped);
     const list = ids.slice(0, MAX_EMAILS);
-    return pool(list, async id => {
+    job.capped = !!page || ids.length > MAX_EMAILS;
+    let read = 0;
+    await pool(list, async id => {
       const m = await gapi("messages/" + id + "?format=full");
       const subject = ((m.payload && m.payload.headers) || []).find(h => h.name.toLowerCase() === "subject");
-      return { date: new Date(Number(m.internalDate)), subject: subject ? subject.value : "", text: gmailText(m.payload) };
-    }, n => progress("Reading Gmail… " + n + " of " + list.length + " emails"));
+      job.consume({ date: new Date(Number(m.internalDate)), subject: subject ? subject.value : "", text: gmailText(m.payload) });
+      read++;
+    }, job, n => progress("Reading Gmail… " + n + " of " + list.length + " emails · " + job.found.length + " flights so far"));
+    return read;
   }
 
   // ---------- Outlook / Microsoft 365 ----------
@@ -128,34 +142,42 @@
     userKey: "contrail.msmail.user"
   });
 
-  async function scanOutlook(years, progress){
-    const after = since(years);
+  async function scanOutlook(after, job, progress){
     // Outlook search (KQL). Graph doesn't allow a date $filter together with $search, so the date goes in the query.
     const kql = "(flight OR airline) AND (" + TERMS.map(t => '\\"' + t + '\\"').join(" OR ") + ") AND received>=" + after.toISOString().slice(0, 10);
     let url = "/me/messages?$top=50&$select=subject,receivedDateTime,body&$search=" + encodeURIComponent('"' + kql + '"');
-    const out = [];
+    let read = 0;
     progress("Searching Outlook…");
-    while(url && out.length < MAX_EMAILS){
+    while(url && read < MAX_EMAILS && !job.stopped){
       const r = await outlook.graph(url, { headers: { Prefer: 'outlook.body-content-type="html"' } });
-      if(r.status === 429){ await sleep(Number(r.headers.get("Retry-After") || 2) * 1000); continue; }
+      if(r.status === 429 || r.status === 503){ await sleep(Number(r.headers.get("Retry-After") || 2) * 1000); continue; }
       if(!r.ok) throw U.err("http", "Outlook returned an error (" + r.status + ").");
       const j = await r.json();
       (j.value || []).forEach(m => {
         const date = new Date(m.receivedDateTime);
-        if(date >= after) out.push({ date, subject: m.subject || "", text: (m.body && m.body.content) || "" });
+        if(date >= after && read < MAX_EMAILS){ job.consume({ date, subject: m.subject || "", text: (m.body && m.body.content) || "" }); read++; }
       });
       url = j["@odata.nextLink"] || "";
-      progress("Reading Outlook… " + out.length + " emails");
+      progress("Reading Outlook… " + read + " emails · " + job.found.length + " flights so far");
     }
-    return out.slice(0, MAX_EMAILS);
+    job.capped = !!url && read >= MAX_EMAILS;
+    return read;
   }
 
   // ---------- shared flow ----------
-  let busy = false, lastImport = [];
+  let busy = false, lastImport = [], job = null;
   function setBusy(on){
     busy = on;
     ["scanGmail", "scanOutlook", "mailRange"].forEach(id => { const el = $(id); if(el) el.disabled = on; });
+    $("scanStop").hidden = !on;
+    $("scanStop").disabled = false;
   }
+  $("scanStop").addEventListener("click", () => {
+    if(!job) return;
+    job.stopped = true;
+    $("scanStop").disabled = true;
+    say("Stopping… adding the flights found so far.");
+  });
   function say(text, isErr){ const m = $("mailMsg"); m.textContent = text; m.classList.toggle("err", !!isErr); }
   function sayWithUndo(text){
     const m = $("mailMsg"); m.classList.remove("err"); m.textContent = text + " ";
@@ -169,27 +191,35 @@
     m.appendChild(b);
   }
 
-  async function scan(source, years){
+  async function scan(source, range){
     setBusy(true);
     const label = source === "gmail" ? "Gmail" : "Outlook";
-    try{
-      const emails = source === "gmail" ? await scanGmail(years, say) : await scanOutlook(years, say);
-      say("Finding flights in " + emails.length + " emails…");
-      await sleep(0);
-      const seen = new Set(), found = [];
-      emails.sort((a, b) => b.date - a.date).forEach(m => {
+    const startedAt = Date.now();
+    const seen = new Set();
+    job = { stopped: false, failed: 0, capped: false, found: [],
+      // Each email is parsed the moment it's read; only the flights are kept.
+      consume(m){
         let flights = [];
         try{ flights = App.parseEmails(m.text, m.date); }catch(_){}
         flights.forEach(f => {
           const k = App.keyOf(f);
           if(seen.has(k)) return;
           seen.add(k);
-          found.push(Object.assign(f, { src: m.subject || "(no subject)" }));
+          job.found.push(Object.assign(f, { src: m.subject || "(no subject)" }));
         });
-      });
-      const flights = App.dropNumberless(found).sort((a, b) => b.date.localeCompare(a.date));
-      const unread = emails.failed ? " " + emails.failed + " " + (emails.failed === 1 ? "email" : "emails") + " couldn't be read; run the import again to retry them." : "";
+      }
+    };
+    try{
+      const after = startDate(source, range);
+      const read = source === "gmail" ? await scanGmail(after, job, say) : await scanOutlook(after, job, say);
+      const emails = { length: read };
+      // Remember a complete import so "New since last import" can pick up from here next time.
+      if(!job.stopped && !job.failed){ try{ localStorage.setItem(LAST_KEY(source), String(startedAt)); }catch(_){} }
+      const flights = App.dropNumberless(job.found).sort((a, b) => b.date.localeCompare(a.date));
       const plural = (n, w) => n + " " + w + (n === 1 ? "" : "s");
+      const unread = (job.failed ? " " + plural(job.failed, "email") + " couldn't be read; run the import again to retry them." : "") +
+        (job.stopped ? " Stopped early; import again to read the rest." : "") +
+        (job.capped ? " That's the most one import reads (" + MAX_EMAILS.toLocaleString() + " emails), so the oldest matches were skipped." : "");
 
       if(CFG.autoAddImported === false){
         say("");
@@ -214,15 +244,19 @@
       if(e && e.code === "cancelled") say("");
       else say((e && e.message) || "The import stopped. Try again.", true);
     }finally{
+      job = null;
       setBusy(false);
     }
   }
 
-  const years = () => Number($("mailRange").value) || 2;
+  const years = () => $("mailRange").value;
 
   if(gmailOn || outlookOn){
     $("inbox").hidden = false;
     $("inboxOr").hidden = false;
+    // After a first complete import, default to reading only newer emails.
+    let hasLast = false; try{ hasLast = !!(localStorage.getItem(LAST_KEY("gmail")) || localStorage.getItem(LAST_KEY("outlook"))); }catch(_){}
+    $("mailRange").value = hasLast ? "since" : "2";
   }
   if(gmailOn){
     const b = $("scanGmail");
@@ -243,6 +277,7 @@
     outlook.handleRedirect().then(back => {
       if(back && back.resume && back.resume.source === "outlook"){
         $("mailRange").value = String(back.resume.years);
+        if(!$("mailRange").value) $("mailRange").value = "2";
         scan("outlook", back.resume.years);
       }
     }, e => say(e && e.code === "cancelled" ? "" : (e && e.message) || "Microsoft sign-in failed.", !(e && e.code === "cancelled")));
