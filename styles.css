@@ -416,3 +416,7 @@ a.ap-h::after{content:"›";color:var(--muted);font-size:18px;line-height:1;marg
 .sp-ex:hover{border-color:#86A9FF;color:#fff}
 .sp-exmsg{margin:6px 0 0;font-size:13px;color:#9FB7FF}
 .sp-exmsg:empty{display:none}
+/* theme switch */
+.unit.theme button{display:inline-flex;align-items:center;padding:4px 9px}
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.mast-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
