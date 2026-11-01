@@ -449,12 +449,47 @@ function renderLog(list){
     const label=`${f.from} to ${f.to} on ${f.date}`;
     const phb=f.example||!PH?'<span></span>':`<button type="button" class="phb${ids.length?" has":""}" data-k="${esc(k)}" aria-expanded="${open}" aria-label="${ids.length?ids.length+(ids.length===1?" photo":" photos"):"Add photos"} for ${label}">`+
       (ids.length?`<img alt="" data-thumb="${ids[0]}"><span class="phn">${ids.length}</span>`:CAMERA)+`</button>`;
-    return `<div class="leg${open?" open":""}${f.id===focusId?" flash":""}" data-fid="${f.id}"><span class="d">${f.date}</span><span class="r"><b>${f.from} → ${f.to}${f.example?'<span class="tag">Example</span>':""}</b><span>${fl} · ${esc(a.city)} to ${esc(b.city)}</span><span class="chips">${editAc===f.id?`<form class="acform" data-id="${f.id}"><input class="acin" list="acList" maxlength="40" value="${esc(f.ac||"")}" placeholder="e.g. Boeing 737-800" aria-label="Aircraft for ${label}" autocomplete="off"><button class="btn" type="submit">Save</button><button class="btn quiet acx" type="button">Cancel</button></form>`:f.example?(f.ac?`<span class="acv">${esc(f.ac)}</span>`:""):`<button type="button" class="acb${f.ac?"":" add"}" data-id="${f.id}" aria-label="${f.ac?"Change aircraft, "+esc(f.ac):"Add aircraft"} for ${label}">${f.ac?esc(f.ac):"+ Aircraft"}</button>`}${regChip(f,label)}</span></span><span class="km">${fmtDist(distKm(f.from,f.to))} ${unit}</span>${phb}<button class="x" data-id="${f.id}" aria-label="Remove ${label}">×</button></div>`+
+    if(editFlight===f.id)return editForm(f,label);
+    return `<div class="leg${open?" open":""}${f.id===focusId?" flash":""}" data-fid="${f.id}"><span class="d">${f.date}</span><span class="r"><b>${f.from} → ${f.to}${f.example?'<span class="tag">Example</span>':""}</b><span>${fl} · ${esc(a.city)} to ${esc(b.city)}</span><span class="chips">${editAc===f.id?`<form class="acform" data-id="${f.id}"><input class="acin" list="acList" maxlength="40" value="${esc(f.ac||"")}" placeholder="e.g. Boeing 737-800" aria-label="Aircraft for ${label}" autocomplete="off"><button class="btn" type="submit">Save</button><button class="btn quiet acx" type="button">Cancel</button></form>`:f.example?(f.ac?`<span class="acv">${esc(f.ac)}</span>`:""):`<button type="button" class="acb${f.ac?"":" add"}" data-id="${f.id}" aria-label="${f.ac?"Change aircraft, "+esc(f.ac):"Add aircraft"} for ${label}">${f.ac?esc(f.ac):"+ Aircraft"}</button>`}${regChip(f,label)}${f.example?"":`<button type="button" class="acb edb" data-id="${f.id}" aria-label="Edit ${label}"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16Z"/></svg> Edit</button>`}</span></span><span class="km">${fmtDist(distKm(f.from,f.to))} ${unit}</span>${phb}<button class="x" data-id="${f.id}" aria-label="Remove ${label}">×</button></div>`+
       (open?PH.drawer(esc(k),ids,label):"");}).join("");
   if(PH)PH.hydrate(L);
 }
 const CAMERA='<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l1.6-2.2h6.8L17 8h3v11H4z"/><circle cx="12" cy="13.2" r="3.4"/></svg>';
-let openPh=null,editAc=null,editReg=null;
+let openPh=null,editAc=null,editReg=null,editFlight=null;
+// ---------- editing a flight: date, airports and flight number ----------
+function editForm(f,label){
+  return `<form class="leg legedit" data-id="${f.id}" aria-label="Edit ${label}">
+    <label>Date<input type="date" name="date" value="${f.date}" required></label>
+    <label>From<input name="from" value="${f.from}" maxlength="3" autocapitalize="characters" autocomplete="off" spellcheck="false" required></label>
+    <label>To<input name="to" value="${f.to}" maxlength="3" autocapitalize="characters" autocomplete="off" spellcheck="false" required></label>
+    <label>Flight<input name="flight" value="${f.airline&&f.num?f.airline+" "+f.num:""}" maxlength="8" placeholder="e.g. AC 123" autocapitalize="characters" autocomplete="off" spellcheck="false"></label>
+    <span class="lebtns"><button class="btn" type="submit">Save</button><button class="btn quiet lex" type="button">Cancel</button></span>
+    <p class="lemsg" role="status"></p></form>`;
+}
+// Returns an error message, or "" when saved. A changed date or flight number makes it a new flight
+// for syncing (the old one is recorded as deleted), and its photos move with it.
+function saveEdit(f,v){
+  const from=v.from.trim().toUpperCase(),to=v.to.trim().toUpperCase(),date=v.date,flt=v.flight.trim().toUpperCase();
+  for(const c of [from,to])if(!AP[c])return `Contrail doesn't know the airport code "${c}". Use a 3-letter code, like SFO.`;
+  if(from===to)return "From and To need to be different airports.";
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date))return "Pick the date you flew.";
+  const m=flt?flt.match(/^([A-Z0-9]{2})\s?(\d{1,4})$/):null;
+  if(flt&&!m)return "Write the flight like AC 123: the airline's 2-letter code, then the number.";
+  const nf=Object.assign({},f,{from,to,date,airline:m?m[1]:"",num:m?m[2]:""});
+  const oldK=keyOf(f),newK=keyOf(nf);
+  if(real().some(x=>x!==f&&(keyOf(x)===newK||tripKey(x)===tripKey(nf))))return "That flight is already in your log.";
+  const now=Date.now(),newFlight=date!==f.date||nf.airline!==f.airline||nf.num!==f.num;
+  if(oldK!==newK){
+    removed=removed.filter(r=>r.k!==newK);removed.push({k:oldK,at:now});
+    photos.forEach(p=>{if(p.k===oldK)p.k=newK;});
+    if(openPh===oldK)openPh=newK;
+    f.added=now;
+  }
+  if(newFlight)delete f.acv; // the email that confirmed the aircraft was about the old flight
+  Object.assign(f,{from,to,date,airline:nf.airline,num:nf.num,edited:now});
+  linkReg(f);
+  return "";
+}
 // registration (tail number) of the plane on this flight, e.g. C-FIVM
 function regChip(f,label){
   if(f.example)return f.reg?`<span class="acv">${esc(f.reg)}</span>`:"";
@@ -742,6 +777,9 @@ $("manual").addEventListener("submit",e=>{
   if(n){$("mFrom").value=to;$("mTo").value="";$("mFlight").value="";$("mAircraft").value="";}
 });
 $("log").addEventListener("click",e=>{
+  const eb=e.target.closest(".edb");
+  if(eb){editFlight=eb.dataset.id;editAc=editReg=null;renderLog(logList);const inp=$("log").querySelector(".legedit input");if(inp)inp.focus();return;}
+  if(e.target.closest(".lex")){const id=editFlight;editFlight=null;renderLog(logList);const b=$("log").querySelector('.edb[data-id="'+id+'"]');if(b)b.focus();return;}
   const rb=e.target.closest(".rgb");
   if(rb){editReg=rb.dataset.id;editAc=null;renderLog(logList);const inp=$("log").querySelector(".rgin");if(inp){inp.focus();inp.select();}return;}
   if(e.target.closest(".rgx")){const id=editReg;editReg=null;renderLog(logList);const b=$("log").querySelector('.rgb[data-id="'+id+'"]');if(b)b.focus();return;}
@@ -757,6 +795,11 @@ $("log").addEventListener("click",e=>{
     if(window.ContrailPhotos)photosFor(k).forEach(id=>window.ContrailPhotos.deletePhoto(id));}
   flights=flights.filter(f=>f.id!==b.dataset.id);save();render();});
 $("log").addEventListener("submit",e=>{
+  const ef=e.target.closest(".legedit");
+  if(ef){e.preventDefault();const f=flights.find(x=>x.id===ef.dataset.id);if(!f)return;
+    const v=Object.fromEntries(new FormData(ef).entries()),err=saveEdit(f,v);
+    if(err){const m=ef.querySelector(".lemsg");m.textContent=err;return;}
+    editFlight=null;save();render();const b=$("log").querySelector('.edb[data-id="'+f.id+'"]');if(b)b.focus();return;}
   const rf=e.target.closest(".rgform");
   if(rf){e.preventDefault();const f=flights.find(x=>x.id===rf.dataset.id),v=normReg(rf.querySelector(".rgin").value);
     if(v&&!/^[A-Z0-9][A-Z0-9-]{1,11}$/.test(v)){rf.querySelector(".rgmsg").textContent="Letters, numbers and dashes only, like C-FIVM or N12345.";return;}
@@ -769,7 +812,8 @@ $("log").addEventListener("submit",e=>{
   editAc=null;save();render();
   const b=$("log").querySelector('.acb[data-id="'+fm.dataset.id+'"]');if(b)b.focus();
 });
-$("log").addEventListener("keydown",e=>{if(e.key==="Escape"&&e.target.closest(".rgform")){const id=editReg;editReg=null;renderLog(logList);const b=$("log").querySelector('.rgb[data-id="'+id+'"]');if(b)b.focus();return;}
+$("log").addEventListener("keydown",e=>{if(e.key==="Escape"&&e.target.closest(".legedit")){const id=editFlight;editFlight=null;renderLog(logList);const b=$("log").querySelector('.edb[data-id="'+id+'"]');if(b)b.focus();return;}
+  if(e.key==="Escape"&&e.target.closest(".rgform")){const id=editReg;editReg=null;renderLog(logList);const b=$("log").querySelector('.rgb[data-id="'+id+'"]');if(b)b.focus();return;}
   if(e.key==="Escape"&&e.target.closest(".acform")){const id=editAc;editAc=null;renderLog(logList);const b=$("log").querySelector('.acb[data-id="'+id+'"]');if(b)b.focus();}});
 $("acList").innerHTML=AC_LIST.map(n=>`<option value="${n}"></option>`).join("");
 // search + filters
@@ -996,7 +1040,7 @@ window.ContrailApp={getDoc,setDoc,keyOf,parseEmails,reviewCandidates,dropNumberl
   photoIds:()=>photos.map(p=>p.id),addPhotoMeta,removePhotoMeta,refreshLog,flightLabel,wipeLocal,wipeSeen,
   counts:()=>({flights:real().length,photos:photos.length}),findAircraft,acList:()=>AC_LIST.slice(),
   flights:()=>real().map(f=>Object.assign({},f)),
-  airlineName:c=>AL[c]||c,photosFor,
+  airlineName:c=>AL[c]||c,airportCity:c=>AP[c]?AP[c].city:c,photosFor,
   // Hangar registrations: regsFor(k) lists them; addReg returns false if it's already there
   regsFor:k=>regs.filter(r=>r.k===k).sort((a,b)=>a.added-b.added).map(r=>Object.assign({},r)),
   addReg(k,reg){if(!addRegTo(k,reg))return false;save();refreshLog();return true;}, // "C FIVM", "CFIVM" and "C-FIVM" are the same plane

@@ -18,7 +18,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="styles.css?v=20261031zs">
+<link rel="stylesheet" href="styles.css?v=20261031zt">
 </head>
 <body>
 <div class="shell">
@@ -87,6 +87,10 @@
     <div class="view" data-view="hangar" hidden>
       <section class="hangar">
         <div class="sec-h"><h2>Hangar</h2></div>
+        <div class="hg-sections" role="tablist" aria-label="Collections">
+          <button type="button" role="tab" data-sec="aircraft" aria-selected="true">Aircraft</button><button type="button" role="tab" data-sec="airlines" aria-selected="false">Airlines</button><button type="button" role="tab" data-sec="passport" aria-selected="false">Passport</button>
+        </div>
+        <div id="colOther" hidden></div>
         <div id="hgDetail" hidden></div>
         <div id="hgList">
         <div class="hg-head">
@@ -281,19 +285,19 @@
   </nav>
 </div>
 
-<script src="airports.js?v=20261031zs"></script>
-<script src="land.js?v=20261031zs"></script>
-<script src="app.js?v=20261031zs"></script>
-<script src="config.js?v=20261031zs"></script>
-<script src="common.js?v=20261031zs"></script>
-<script src="msauth.js?v=20261031zs"></script>
-<script src="google.js?v=20261031zs"></script>
-<script src="microsoft.js?v=20261031zs"></script>
-<script src="apple.js?v=20261031zs"></script>
-<script src="sync.js?v=20261031zs"></script>
-<script src="mail.js?v=20261031zs"></script>
-<script src="photos.js?v=20261031zs"></script>
-<script src="privacy.js?v=20261031zs"></script>
+<script src="airports.js?v=20261031zt"></script>
+<script src="land.js?v=20261031zt"></script>
+<script src="app.js?v=20261031zt"></script>
+<script src="config.js?v=20261031zt"></script>
+<script src="common.js?v=20261031zt"></script>
+<script src="msauth.js?v=20261031zt"></script>
+<script src="google.js?v=20261031zt"></script>
+<script src="microsoft.js?v=20261031zt"></script>
+<script src="apple.js?v=20261031zt"></script>
+<script src="sync.js?v=20261031zt"></script>
+<script src="mail.js?v=20261031zt"></script>
+<script src="photos.js?v=20261031zt"></script>
+<script src="privacy.js?v=20261031zt"></script>
 <script>
 // theme switch: Auto / Light / Dark, remembered on this device
 (function(){
@@ -310,9 +314,10 @@
   apply(root.dataset.theme||"auto");
 })();
 </script>
-<script src="silhouettes.js?v=20261031zs"></script>
-<script src="hangar.js?v=20261031zs"></script>
-<script src="space.js?v=20261031zs"></script>
+<script src="silhouettes.js?v=20261031zt"></script>
+<script src="collections.js?v=20261031zt"></script>
+<script src="hangar.js?v=20261031zt"></script>
+<script src="space.js?v=20261031zt"></script>
 <script>
 // Tabs: Overview, Map, Flight log, Hangar, Add flights, Account. The open tab is in the address (#log etc.) so it can be bookmarked.
 (function(){

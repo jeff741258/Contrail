@@ -214,7 +214,16 @@
     if(PH()) PH().hydrate($("hgDetail"));
   }
 
+  // which collection is open: aircraft, airlines or passport
+  let section = "aircraft";
+  try{ section = localStorage.getItem("contrail.hangarSection") || "aircraft"; }catch(_){}
   function render(){
+    document.querySelectorAll(".hg-sections [data-sec]").forEach(b => b.setAttribute("aria-selected", String(b.dataset.sec === section)));
+    if(section !== "aircraft" && window.ContrailCollections){
+      $("hgList").hidden = $("hgDetail").hidden = true; $("colOther").hidden = false;
+      window.ContrailCollections.render(section, $("colOther")); return;
+    }
+    $("colOther").hidden = true;
     if(detail){
       const c = build().find(x => x.name === detail && x.state !== "missing");
       if(c){ renderDetail(c); return; }
@@ -280,10 +289,15 @@
   });
   // tapping the Hangar tab while on an aircraft's page goes back to the whole collection
   document.querySelectorAll('.tabnav a[href="#hangar"]').forEach(t => t.addEventListener("click", () => { if(visible() && detail){ detail = null; render(); } }));
+  document.querySelector(".hg-sections").addEventListener("click", e => {
+    const b = e.target.closest("[data-sec]"); if(!b) return;
+    section = b.dataset.sec; detail = null; try{ localStorage.setItem("contrail.hangarSection", section); }catch(_){}
+    render();
+  });
   let keep = false; // set by open(): show that aircraft instead of the collection
   addEventListener("hashchange", () => { if(visible()){ if(!keep) detail = null; keep = false; render(); } });
   window.ContrailHangar = { refresh(){ if(visible()) render(); },
     // name: an aircraft type to open straight to its airline page; "" for the whole collection
-    open(name){ detail = name || null; if(visible()){ render(); scrollTo(0, 0); } else { keep = true; location.hash = "hangar"; } } };
+    open(name){ detail = name || null; section = "aircraft"; if(visible()){ render(); scrollTo(0, 0); } else { keep = true; location.hash = "hangar"; } } };
   if(visible()) render();
 })();
