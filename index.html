@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="styles.css?v=20261031e">
+<link rel="stylesheet" href="styles.css?v=20261031f">
 </head>
 <body>
 <div class="wrap">
@@ -96,6 +96,8 @@
           <label>To<input id="mTo" maxlength="3" placeholder="JFK" autocomplete="off" required></label>
           <label>Date<input id="mDate" type="date" required></label>
           <label>Flight<input id="mFlight" maxlength="7" placeholder="UA 523" autocomplete="off"></label>
+          <label class="span2">Aircraft (optional)<input id="mAircraft" list="acList" maxlength="40" placeholder="Boeing 737-800" autocomplete="off"></label>
+          <datalist id="acList"></datalist>
           <div class="row" style="grid-column:1/-1"><button class="btn primary" type="submit">Log flight</button><p class="msg" id="manMsg"></p></div>
         </form>
       </details>
@@ -182,18 +184,18 @@
   <footer><span id="footStore">Contrail keeps your log in this browser and, once you sign in, in your own cloud account.</span> Distances are great-circle, airport to airport; hours aloft are estimated at 800 km/h plus 30 minutes per flight. The parser knows about 230 airports and 80 airlines. Coastlines from Natural Earth.</footer>
 </div>
 
-<script src="land.js?v=20261031e"></script>
-<script src="app.js?v=20261031e"></script>
-<script src="config.js?v=20261031e"></script>
-<script src="common.js?v=20261031e"></script>
-<script src="msauth.js?v=20261031e"></script>
-<script src="google.js?v=20261031e"></script>
-<script src="microsoft.js?v=20261031e"></script>
-<script src="apple.js?v=20261031e"></script>
-<script src="sync.js?v=20261031e"></script>
-<script src="mail.js?v=20261031e"></script>
-<script src="photos.js?v=20261031e"></script>
-<script src="privacy.js?v=20261031e"></script>
+<script src="land.js?v=20261031f"></script>
+<script src="app.js?v=20261031f"></script>
+<script src="config.js?v=20261031f"></script>
+<script src="common.js?v=20261031f"></script>
+<script src="msauth.js?v=20261031f"></script>
+<script src="google.js?v=20261031f"></script>
+<script src="microsoft.js?v=20261031f"></script>
+<script src="apple.js?v=20261031f"></script>
+<script src="sync.js?v=20261031f"></script>
+<script src="mail.js?v=20261031f"></script>
+<script src="photos.js?v=20261031f"></script>
+<script src="privacy.js?v=20261031f"></script>
 <script>
 // Installable app: offline support plus an "Install app" button where the browser offers one (Chrome on Android).
 (function(){

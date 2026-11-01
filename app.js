@@ -91,6 +91,49 @@ function cleanEmail(t){
       .replace(/&nbsp;/g," ").replace(/&rarr;/g,"→").replace(/&amp;/g,"&").replace(/&#8594;/g,"→");}
   return t;
 }
+// ---------- aircraft ----------
+// Recognizes the aircraft named in booking emails ("Boeing 737 MAX 8", "Airbus A220-300", "E175",
+// "B38M") and turns it into one consistent name. Plain numbers like "737" only count after "Boeing".
+const AC_CODES={B712:"Boeing 717",B732:"Boeing 737-200",B733:"Boeing 737-300",B734:"Boeing 737-400",B735:"Boeing 737-500",B736:"Boeing 737-600",B737:"Boeing 737-700",B738:"Boeing 737-800",B739:"Boeing 737-900",
+  B37M:"Boeing 737 MAX 7",B38M:"Boeing 737 MAX 8",B39M:"Boeing 737 MAX 9",B3XM:"Boeing 737 MAX 10",B752:"Boeing 757-200",B753:"Boeing 757-300",B762:"Boeing 767-200",B763:"Boeing 767-300",B764:"Boeing 767-400",
+  B772:"Boeing 777-200",B77L:"Boeing 777-200LR",B773:"Boeing 777-300",B77W:"Boeing 777-300ER",B788:"Boeing 787-8",B789:"Boeing 787-9",B78X:"Boeing 787-10",B744:"Boeing 747-400",B748:"Boeing 747-8",
+  A318:"Airbus A318",A319:"Airbus A319",A320:"Airbus A320",A321:"Airbus A321",A19N:"Airbus A319neo",A20N:"Airbus A320neo",A21N:"Airbus A321neo",BCS1:"Airbus A220-100",BCS3:"Airbus A220-300",
+  A332:"Airbus A330-200",A333:"Airbus A330-300",A338:"Airbus A330-800neo",A339:"Airbus A330-900neo",A359:"Airbus A350-900",A35K:"Airbus A350-1000",A388:"Airbus A380",
+  E170:"Embraer 170",E75L:"Embraer 175",E75S:"Embraer 175",E190:"Embraer 190",E195:"Embraer 195",E290:"Embraer 190-E2",E295:"Embraer 195-E2",
+  CRJ2:"Bombardier CRJ200",CRJ7:"Bombardier CRJ700",CRJ9:"Bombardier CRJ900",CRJX:"Bombardier CRJ1000",DH8D:"De Havilland Dash 8-400",DH8C:"De Havilland Dash 8-300",AT72:"ATR 72",AT76:"ATR 72-600",AT75:"ATR 72-500",AT45:"ATR 42"};
+const AC_PATTERNS=[
+  [/\bBoeing\s*7([0-9])7\s*(?:-|\s)?\s*MAX\s*-?\s*(7|8|9|10)\b/i,m=>`Boeing 7${m[1]}7 MAX ${m[2]}`],
+  [/\b7([0-9])7\s*MAX\s*-?\s*(7|8|9|10)\b/i,m=>`Boeing 7${m[1]}7 MAX ${m[2]}`],
+  [/\b(?:Boeing\s*|B)?7([0-9])7\s*-\s*(\d00|10|[789])\s*(ER|LR|F)?\b/i,m=>boeingVariant(m[1],m[2],m[3])],
+  [/\bBoeing\s*7([0-9])7\s*(\d{3})\s*(ER|LR)?\b/i,m=>`Boeing 7${m[1]}7-${m[2]}${(m[3]||"").toUpperCase()}`],
+  [/\bBoeing\s*7([0-9])7\b/i,m=>`Boeing 7${m[1]}7`],
+  [/\b(?:Airbus\s*)?A\s?220\s*-?\s*(100|300)\b/i,m=>`Airbus A220-${m[1]}`],
+  [/\b(?:Airbus\s*)?A\s?3([1-8])(\d)\s*-?\s*(neo|NEO|XLR|LR)\b/,m=>`Airbus A3${m[1]}${m[2]}${m[3].toLowerCase()==="neo"?"neo":m[3].toUpperCase()}`],
+  [/\b(?:Airbus\s*)?A\s?3([3-5])0\s*-\s*(\d{3,4})\b/i,m=>`Airbus A3${m[1]}0-${m[2]}`],
+  [/\bAirbus\s*A?\s?3([1-8])(\d)\b/i,m=>`Airbus A3${m[1]}${m[2]}`],
+  [/\bA3(18|19|20|21|30|40|50|80)\b/,m=>`Airbus A3${m[1]}`],
+  [/\b(?:Embraer\s*(?:ERJ|E)?|E-?Jet\s*|ERJ\s*-?|E)\s*-?\s*(170|175|190|195)\s*(?:-?\s*(E2))?\b/i,m=>`Embraer ${m[1]}${m[2]?"-E2":""}`],
+  [/\b(?:Bombardier\s*|Mitsubishi\s*)?CRJ\s*-?\s*(200|550|700|900|1000)\b/i,m=>`Bombardier CRJ${m[1]}`],
+  [/\b(?:De\s*Havilland\s*|Bombardier\s*)?(?:Dash|DHC)\s*-?\s*8\s*(?:-|\s)?\s*Q?(100|200|300|400)\b/i,m=>`De Havilland Dash 8-${m[1]}`],
+  [/\bQ400\b/,()=>"De Havilland Dash 8-400"],
+  [/\bATR\s*-?\s*(42|72)(?:\s*-?\s*(500|600))?\b/i,m=>`ATR ${m[1]}${m[2]?"-"+m[2]:""}`],
+  [/\b(B7[1-8][0-9MWLX]|B3[789X]M|A3[1-8][0-9NK]|A[12][90]N|A21N|A35K|BCS[13]|E1[79]0|E19[05]|E75[LS]|E29[05]|CRJ[279X]|DH8[A-D]|AT[47][2-6])\b/,m=>AC_CODES[m[1]]||null]
+];
+// Boeing names: 787-8/-9/-10 keep one digit; "737-8" is Boeing's name for the 737 MAX 8.
+function boeingVariant(series,v,suffix){
+  suffix=(suffix||"").toUpperCase();
+  if(series==="8")return `Boeing 787-${v.length===3?v[0]:v}`;
+  if(series==="3"&&v.length<3)return `Boeing 737 MAX ${v}`;
+  return `Boeing 7${series}7-${v.length<3?v+"00":v}${suffix}`;
+}
+function findAircraft(s){
+  if(!s)return "";
+  let best=null;
+  for(const [rx,fn] of AC_PATTERNS){const m=rx.exec(s);if(m){const name=fn(m);if(name&&(!best||m.index<best.i))best={i:m.index,name};}}
+  return best?best.name:"";
+}
+const AC_LIST=[...new Set(Object.values(AC_CODES))].sort();
+
 // refDate (optional): when the email arrived. Dates written without a year ("Fri, Nov 14") are
 // then placed on or after ~2 months before that day, which is how booking emails read.
 function parseEmails(raw,refDate){
@@ -128,7 +171,9 @@ function parseEmails(raw,refDate){
       let best=null,bd=1e9;ds.forEach(d=>{const dist=d.e<=h.i?h.i-d.e:d.i-h.end;if(dist<bd){bd=dist;best=d;}});
       date=best?best.v:findDate(text,defYear);}
     if(!date)return;
-    found.push({airline:h.airline,num:h.num,from,to,date});
+    // aircraft: on this leg's line, then in this leg's stretch of text (stopping at the next flight)
+    const ac=findAircraft(line)||findAircraft(fwd)||findAircraft(back.slice(-200));
+    found.push({airline:h.airline,num:h.num,from,to,date,ac});
   });
   // route-only fallback: "SFO → JFK" with no flight numbers
   if(!found.length){
@@ -188,7 +233,10 @@ function renderRecords(list,km){
     cell("Most-flown route",tr[0],`${tr[1]} ${tr[1]===1?"time":"times"}`)+
     cell("Home base",tp[0],`${esc(AP[tp[0]].city)} · ${tp[1]} visits`)+
     cell("Top airline",tl?esc(AL[tl[0]]||tl[0]):"—",tl?`${tl[1]} ${tl[1]===1?"flight":"flights"}`:"No flight numbers yet")+
-    cell("To the Moon",((km/384400)*100).toFixed(1)+"%",`of the way, at ${fmtDist(384400)} ${unit}`);
+    cell("To the Moon",((km/384400)*100).toFixed(1)+"%",`of the way, at ${fmtDist(384400)} ${unit}`)+
+    (()=>{const ac={};list.forEach(f=>{if(f.ac)ac[f.ac]=(ac[f.ac]||0)+1;});const t=top(ac),n=Object.keys(ac).length;
+      return cell("Top aircraft",t?esc(t[0]):"—",t?`${t[1]} ${t[1]===1?"flight":"flights"}`:"Add aircraft in the flight log")+
+        cell("Aircraft types",String(n),n?`on ${Object.values(ac).reduce((a,b)=>a+b,0)} of ${list.length} flights`:"None recorded yet");})();
   const yrs={};list.forEach(f=>{const y=f.date.slice(0,4);yrs[y]=(yrs[y]||0)+1;});
   const ys=Object.keys(yrs).sort(),mx=Math.max(...Object.values(yrs));
   Y.innerHTML='<span class="label">Flights per year</span>'+ys.map(y=>`<div class="yr"><span>${y}</span><span class="bar"><i style="width:${(yrs[y]/mx*100).toFixed(1)}%"></i></span><b>${yrs[y]}</b></div>`).join("");
@@ -233,12 +281,12 @@ function renderLog(list){
     const label=`${f.from} to ${f.to} on ${f.date}`;
     const phb=f.example||!PH?'<span></span>':`<button type="button" class="phb${ids.length?" has":""}" data-k="${esc(k)}" aria-expanded="${open}" aria-label="${ids.length?ids.length+(ids.length===1?" photo":" photos"):"Add photos"} for ${label}">`+
       (ids.length?`<img alt="" data-thumb="${ids[0]}"><span class="phn">${ids.length}</span>`:CAMERA)+`</button>`;
-    return `<div class="leg${open?" open":""}"><span class="d">${f.date}</span><span class="r"><b>${f.from} → ${f.to}${f.example?'<span class="tag">Example</span>':""}</b><span>${fl} · ${esc(a.city)} to ${esc(b.city)}</span></span><span class="km">${fmtDist(distKm(f.from,f.to))} ${unit}</span>${phb}<button class="x" data-id="${f.id}" aria-label="Remove ${label}">×</button></div>`+
+    return `<div class="leg${open?" open":""}"><span class="d">${f.date}</span><span class="r"><b>${f.from} → ${f.to}${f.example?'<span class="tag">Example</span>':""}</b><span>${fl} · ${esc(a.city)} to ${esc(b.city)}</span>${editAc===f.id?`<form class="acform" data-id="${f.id}"><input class="acin" list="acList" maxlength="40" value="${esc(f.ac||"")}" placeholder="e.g. Boeing 737-800" aria-label="Aircraft for ${label}" autocomplete="off"><button class="btn" type="submit">Save</button><button class="btn quiet acx" type="button">Cancel</button></form>`:f.example?(f.ac?`<span class="acv">${esc(f.ac)}</span>`:""):`<button type="button" class="acb${f.ac?"":" add"}" data-id="${f.id}" aria-label="${f.ac?"Change aircraft, "+esc(f.ac):"Add aircraft"} for ${label}">${f.ac?esc(f.ac):"+ Aircraft"}</button>`}</span><span class="km">${fmtDist(distKm(f.from,f.to))} ${unit}</span>${phb}<button class="x" data-id="${f.id}" aria-label="Remove ${label}">×</button></div>`+
       (open?PH.drawer(esc(k),ids,label):"");}).join("");
   if(PH)PH.hydrate(L);
 }
 const CAMERA='<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l1.6-2.2h6.8L17 8h3v11H4z"/><circle cx="12" cy="13.2" r="3.4"/></svg>';
-let openPh=null;
+let openPh=null,editAc=null;
 function photosFor(k){return photos.filter(p=>p.k===k).sort((a,b)=>a.added-b.added).map(p=>p.id);}
 
 // ---------- route chart ----------
@@ -431,7 +479,7 @@ function showCandidates(list){
   candidates=list.map(f=>Object.assign({},f,{dup:have.has(keyOf(f)),upcoming:f.date>today}));
   const W=$("candWrap"),C=$("cands");
   if(!candidates.length){W.hidden=true;return;}
-  C.innerHTML=candidates.map((f,i)=>`<label class="cand"><input type="checkbox" id="cand${i}" data-i="${i}" ${f.dup||f.upcoming?"":"checked"}><span class="cand-main"><span><b class="mono">${f.from} → ${f.to}</b> · ${f.airline?f.airline+" "+f.num+" · ":""}${fmtDate(f.date)}</span>${f.src?`<span class="src">${esc(f.src)}</span>`:""}</span><span class="dup">${f.dup?"Already logged":f.upcoming?"Upcoming":fmtDist(distKm(f.from,f.to))+" "+unit}</span></label>`).join("");
+  C.innerHTML=candidates.map((f,i)=>`<label class="cand"><input type="checkbox" id="cand${i}" data-i="${i}" ${f.dup||f.upcoming?"":"checked"}><span class="cand-main"><span><b class="mono">${f.from} → ${f.to}</b> · ${f.airline?f.airline+" "+f.num+" · ":""}${fmtDate(f.date)}${f.ac?" · "+esc(f.ac):""}</span>${f.src?`<span class="src">${esc(f.src)}</span>`:""}</span><span class="dup">${f.dup?"Already logged":f.upcoming?"Upcoming":fmtDist(distKm(f.from,f.to))+" "+unit}</span></label>`).join("");
   W.hidden=false;
 }
 function runParse(text){
@@ -456,7 +504,7 @@ function addFlightsIds(arr){
   const have=new Set(flights.map(keyOf));let n=0;
   const now=Date.now();
   const ids=[];
-  arr.forEach(f=>{const k=keyOf(f);if(have.has(k))return;have.add(k);const id=uid();ids.push(id);flights.push({id,airline:f.airline||"",num:f.num||"",from:f.from,to:f.to,date:f.date,added:now});n++;});
+  arr.forEach(f=>{const k=keyOf(f);if(have.has(k))return;have.add(k);const id=uid();ids.push(id);flights.push({id,airline:f.airline||"",num:f.num||"",from:f.from,to:f.to,date:f.date,ac:f.ac||"",added:now});n++;});
   if(ids.length){save();render();}
   return ids;
 }
@@ -473,11 +521,15 @@ $("manual").addEventListener("submit",e=>{
   for(const c of [from,to])if(!AP[c]){m.textContent=`Contrail doesn't know the airport code "${c}" yet. Try a major airport's 3-letter code, like SFO.`;m.classList.add("err");return;}
   if(from===to){m.textContent="From and To need to be different airports.";m.classList.add("err");return;}
   if(!date){m.textContent="Pick the date you flew.";m.classList.add("err");return;}
-  const n=addFlights([{from,to,date,airline:fl?fl[1]:"",num:fl?fl[2]:""}]);
+  const acIn=$("mAircraft").value.trim();
+  const n=addFlights([{from,to,date,airline:fl?fl[1]:"",num:fl?fl[2]:"",ac:acIn?(findAircraft(acIn)||acIn):""}]);
   m.textContent=n?"Logged.":"That flight is already in your log.";
-  if(n){$("mFrom").value=to;$("mTo").value="";$("mFlight").value="";}
+  if(n){$("mFrom").value=to;$("mTo").value="";$("mFlight").value="";$("mAircraft").value="";}
 });
 $("log").addEventListener("click",e=>{
+  const ab=e.target.closest(".acb");
+  if(ab){editAc=ab.dataset.id;renderLog(logList);const inp=$("log").querySelector(".acin");if(inp){inp.focus();inp.select();}return;}
+  if(e.target.closest(".acx")){const id=editAc;editAc=null;renderLog(logList);const b=$("log").querySelector('.acb[data-id="'+id+'"]');if(b)b.focus();return;}
   const pb=e.target.closest(".phb");
   if(pb){openPh=openPh===pb.dataset.k?null:pb.dataset.k;renderLog(logList);
     const again=$("log").querySelector('.phb[data-k="'+CSS.escape(pb.dataset.k)+'"]');if(again)again.focus();return;}
@@ -486,6 +538,15 @@ $("log").addEventListener("click",e=>{
   if(gone&&!gone.example){const k=keyOf(gone);removed=removed.filter(r=>r.k!==k);removed.push({k,at:Date.now()});
     if(window.ContrailPhotos)photosFor(k).forEach(id=>window.ContrailPhotos.deletePhoto(id));}
   flights=flights.filter(f=>f.id!==b.dataset.id);save();render();});
+$("log").addEventListener("submit",e=>{
+  const fm=e.target.closest(".acform");if(!fm)return;e.preventDefault();
+  const f=flights.find(x=>x.id===fm.dataset.id);const v=fm.querySelector(".acin").value.trim();
+  if(f){f.ac=v?(findAircraft(v)||v):"";f.edited=Date.now();}
+  editAc=null;save();render();
+  const b=$("log").querySelector('.acb[data-id="'+fm.dataset.id+'"]');if(b)b.focus();
+});
+$("log").addEventListener("keydown",e=>{if(e.key==="Escape"&&e.target.closest(".acform")){const id=editAc;editAc=null;renderLog(logList);const b=$("log").querySelector('.acb[data-id="'+id+'"]');if(b)b.focus();}});
+$("acList").innerHTML=AC_LIST.map(n=>`<option value="${n}"></option>`).join("");
 $("logTabs").addEventListener("click",e=>{const b=e.target.closest(".ltab");if(!b)return;
   logTab=b.dataset.tab;logPage=0;try{localStorage.setItem(TKEY,logTab);}catch(_){}renderLog(logList);
   const sel=$("logTabs").querySelector('[aria-selected="true"]');if(sel&&sel.focus)sel.focus();});
@@ -494,7 +555,7 @@ $("pgNext").addEventListener("click",()=>{logPage++;renderLog(logList);});
 $("u-mi").addEventListener("click",()=>{unit="mi";try{localStorage.setItem(UKEY,unit)}catch(e){}render();showCandidates(candidates);});
 $("u-km").addEventListener("click",()=>{unit="km";try{localStorage.setItem(UKEY,unit)}catch(e){}render();showCandidates(candidates);});
 $("copyCsv").addEventListener("click",()=>{
-  const rows=[["date","airline","flight","from","to","distance_km"]].concat(flights.slice().sort((a,b)=>a.date.localeCompare(b.date)).map(f=>[f.date,AL[f.airline]||"",f.airline?f.airline+f.num:"",f.from,f.to,Math.round(distKm(f.from,f.to))]));
+  const rows=[["date","airline","flight","from","to","aircraft","distance_km"]].concat(flights.slice().sort((a,b)=>a.date.localeCompare(b.date)).map(f=>[f.date,AL[f.airline]||"",f.airline?f.airline+f.num:"",f.from,f.to,(f.ac||"").replace(/,/g," "),Math.round(distKm(f.from,f.to))]));
   const csv=rows.map(r=>r.join(",")).join("\n");const btn=$("copyCsv");
   const done=()=>{btn.textContent="Copied";setTimeout(()=>btn.textContent="Copy as CSV",1600);};
   try{navigator.clipboard.writeText(csv).then(done,()=>{$("emailIn").value=csv;$("emailIn").select();btn.textContent="Selected in box above";});}
@@ -575,12 +636,13 @@ $("bkFile").addEventListener("change",async e=>{
 function normalizeRow(r){
   if(!r)return null;
   const f={from:String(r.from||r.f||"").toUpperCase(),to:String(r.to||r.t||"").toUpperCase(),date:String(r.date||r.d||""),
-    airline:String(r.airline||r.a||"").toUpperCase(),num:String(r.flight||r.num||r.n||""),added:Number(r.added)||0};
+    airline:String(r.airline||r.a||"").toUpperCase(),num:String(r.flight||r.num||r.n||""),added:Number(r.added)||0,
+    ac:String(r.aircraft||r.ac||"").slice(0,40),edited:Number(r.edited)||0};
   return AP[f.from]&&AP[f.to]&&f.from!==f.to&&/^\d{4}-\d{2}-\d{2}$/.test(f.date)?f:null;
 }
 function getDoc(){
   return {app:"Contrail",format:2,updatedAt:Date.now(),wipedAt:wipeSeen(),
-    flights:real().slice().sort((a,b)=>a.date.localeCompare(b.date)).map(f=>({date:f.date,airline:f.airline||"",flight:f.num||"",from:f.from,to:f.to,added:f.added||0})),
+    flights:real().slice().sort((a,b)=>a.date.localeCompare(b.date)).map(f=>Object.assign({date:f.date,airline:f.airline||"",flight:f.num||"",from:f.from,to:f.to,added:f.added||0},f.ac?{aircraft:f.ac}:{},f.edited?{edited:f.edited}:{})),
     photos:photos.filter(p=>real().some(f=>keyOf(f)===p.k)).map(p=>({id:p.id,k:p.k,added:p.added})),
     removed:removed.slice(-1000)};
 }
@@ -634,7 +696,12 @@ function dropNumberless(list){
 function addImported(list){
   const have=new Set(real().map(keyOf));
   const fresh=list.filter(f=>!have.has(keyOf(f)));
-  return {ids:addFlightsIds(fresh),already:list.length-fresh.length};
+  // Flights already logged without an aircraft get it from the email.
+  let filled=0;const byKey=new Map(real().map(f=>[keyOf(f),f]));const now=Date.now();
+  list.forEach(f=>{const g=byKey.get(keyOf(f));if(g&&!g.ac&&f.ac){g.ac=f.ac;g.edited=now;filled++;}});
+  const ids=addFlightsIds(fresh);
+  if(filled&&!ids.length){save();render();}
+  return {ids,already:list.length-fresh.length,filled};
 }
 function removeFlights(ids){
   const set=new Set(ids),now=Date.now();
@@ -645,7 +712,7 @@ function removeFlights(ids){
 }
 window.ContrailApp={getDoc,setDoc,keyOf,parseEmails,reviewCandidates,dropNumberless,addImported,removeFlights,
   photoIds:()=>photos.map(p=>p.id),addPhotoMeta,removePhotoMeta,refreshLog,flightLabel,wipeLocal,wipeSeen,
-  counts:()=>({flights:real().length,photos:photos.length})};
+  counts:()=>({flights:real().length,photos:photos.length}),findAircraft};
 
 load();render();
 })();

@@ -283,3 +283,13 @@ body.noscroll{overflow:hidden}
 @media (display-mode: standalone){ .btn.install{display:none} }
 .mast .unit{order:2}
 .mast .btn.install{order:1}
+
+/* aircraft */
+.leg .r .acb{align-self:flex-start;margin-top:3px;border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:999px;padding:1px 9px;font:500 11.5px var(--f-mono);cursor:pointer;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.leg .r .acb:hover{border-color:var(--muted)}
+.leg .r .acb.add{color:var(--muted);border-style:dashed}
+.leg .r .acv{font:500 11.5px var(--f-mono);color:var(--muted);margin-top:3px}
+.acform{display:flex;gap:6px;align-items:center;margin-top:4px;flex-wrap:wrap}
+.acin{border:1px solid var(--line);border-radius:6px;background:var(--bg);padding:5px 8px;font:13px var(--f-mono);min-width:0;width:200px;max-width:100%}
+.acform .btn{padding:4px 10px;font-size:13px}
+.manual .span2{grid-column:span 2}

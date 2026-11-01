@@ -267,7 +267,8 @@
       lastImport = result.ids;
       const added = result.ids.length;
       const summary = (added ? "Added " + plural(added, "flight") : "No new flights") + " from " + plural(emails.length, label + " email") +
-        (result.already ? " (" + result.already + " already in your log)" : "") + "." + unread;
+        (result.already ? " (" + result.already + " already in your log)" : "") + "." +
+        (result.filled ? " Added the aircraft to " + plural(result.filled, "flight") + " already in your log." : "") + unread;
       added ? sayWithUndo(summary) : say(summary);
       App.reviewCandidates(upcoming, upcoming.length
         ? plural(upcoming.length, "upcoming flight") + " found. Tick any you want to add now, or import again after you fly."

@@ -18,7 +18,8 @@
       if(!doc) return;
       (doc.flights || []).forEach(f => {
         const k = keyOf(f), cur = added.get(k);
-        if(!cur || (f.added || 0) > (cur.added || 0)) added.set(k, f);
+        const ver = x => Math.max(x.added || 0, x.edited || 0); // an edit (e.g. aircraft) makes that copy newer
+        if(!cur || ver(f) > ver(cur)) added.set(k, f);
       });
       (doc.removed || []).forEach(r => {
         if(r && typeof r.k === "string" && typeof r.at === "number") deleted.set(r.k, Math.max(deleted.get(r.k) || 0, r.at));
@@ -43,7 +44,7 @@
   }
   function fingerprint(doc){
     if(!doc) return "";
-    const f = (doc.flights || []).map(x => keyOf(x) + "@" + (x.added || 0)).sort().join(",");
+    const f = (doc.flights || []).map(x => keyOf(x) + "@" + (x.added || 0) + "/" + (x.edited || 0) + ":" + (x.aircraft || "")).sort().join(",");
     const r = (doc.removed || []).map(x => x.k + "@" + x.at).sort().join(",");
     const p = (doc.photos || []).map(x => x.id + ">" + x.k).sort().join(",");
     return f + "#" + r + "#" + p;
