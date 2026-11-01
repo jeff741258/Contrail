@@ -234,6 +234,7 @@
       consume(m){
         let flights = [];
         try{ flights = App.parseEmails(m.text, m.date, { requireNumber: true }); }catch(_){}
+        flights.forEach(f => { if(f.ac) f.acv = 1; }); // an aircraft read from a real inbox email counts as caught in the Hangar
         flights.forEach(f => {
           const k = App.keyOf(f);
           if(seen.has(k)) return;
@@ -269,7 +270,8 @@
       const added = result.ids.length;
       const summary = (added ? "Added " + plural(added, "flight") : "No new flights") + " from " + plural(emails.length, label + " email") +
         (result.already ? " (" + result.already + " already in your log)" : "") + "." +
-        (result.filled ? " Added the aircraft to " + plural(result.filled, "flight") + " already in your log." : "") + unread;
+        (result.filled ? " Added the aircraft to " + plural(result.filled, "flight") + " already in your log." : "") +
+        (result.confirmed ? " Confirmed the aircraft on " + plural(result.confirmed, "flight") + " for your Hangar." : "") + unread;
       added ? sayWithUndo(summary) : say(summary);
       App.reviewCandidates(upcoming, upcoming.length
         ? plural(upcoming.length, "upcoming flight") + " found. Tick any you want to add now, or import again after you fly."

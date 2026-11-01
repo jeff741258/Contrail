@@ -44,7 +44,7 @@
   }
   function fingerprint(doc){
     if(!doc) return "";
-    const f = (doc.flights || []).map(x => keyOf(x) + "@" + (x.added || 0) + "/" + (x.edited || 0) + ":" + (x.aircraft || "")).sort().join(",");
+    const f = (doc.flights || []).map(x => keyOf(x) + "@" + (x.added || 0) + "/" + (x.edited || 0) + ":" + (x.aircraft || "") + (x.aircraftConfirmed ? "!" : "")).sort().join(",");
     const r = (doc.removed || []).map(x => x.k + "@" + x.at).sort().join(",");
     const p = (doc.photos || []).map(x => x.id + ">" + x.k).sort().join(",");
     return f + "#" + r + "#" + p;
@@ -66,8 +66,9 @@
     }
     const local = window.ContrailApp.getDoc();
     const merged = merge(local, remote);
-    if(fingerprint(merged) !== fingerprint(local)) window.ContrailApp.setDoc(merged);
-    if(!remote || fingerprint(merged) !== fingerprint(remote)) await p.save(merged);
+    if(fingerprint(merged) !== fingerprint(local)) window.ContrailApp.setDoc(merged); // also folds duplicate trips
+    const final = window.ContrailApp.getDoc();
+    if(!remote || fingerprint(final) !== fingerprint(remote)) await p.save(final);
   }
 
   // quiet: a background check. The status keeps its "Synced at" line instead of flashing "Syncing…".
