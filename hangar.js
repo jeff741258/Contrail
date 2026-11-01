@@ -21,6 +21,8 @@
   try{ filter = localStorage.getItem("contrail.hangarFilter") || "all"; }catch(_){}
 
   const PLANE = '<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M32 4c2.2 0 3.4 2.6 3.4 6v13.5l22.6 13v5.2l-22.6-6.9v12.4l6.4 5v4.3L32 53.3l-9.8 3.2v-4.3l6.4-5V34.8L6 41.7v-5.2l22.6-13V10c0-3.4 1.2-6 3.4-6Z"/></svg>';
+  // once caught, a card shows that type's own silhouette; until then the generic plane
+  const icon = (name, caught) => (caught && window.ContrailSilhouette && window.ContrailSilhouette.svg(name)) || PLANE;
   const fmt = iso => { const [y, m, d] = iso.split("-"); return new Date(+y, +m - 1, +d).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }); };
 
   // airlines you've flown this type with, most flights first: [{code, name, n}]
@@ -81,7 +83,7 @@
     const tag = c.state === "missing" ? "div" : "a";
     return '<' + tag + ' class="hg-card ' + c.state + ' t-' + c.tier.id + '"' + (tag === "a" ? ' href="#log" data-ac="' + esc(c.name) + '" aria-label="' + esc(c.name) + ': see airlines and photos"' : "") + '>' +
       '<span class="hg-top"><span class="hg-no">' + no + '</span><span class="hg-tier">' + c.tier.label + '</span></span>' +
-      '<span class="hg-pic">' + PLANE + '</span>' +
+      '<span class="hg-pic">' + icon(c.name, c.state === "caught") + '</span>' +
       '<b class="hg-name">' + esc(c.name) + '</b>' + body + '</' + tag + '>';
   }
 
@@ -103,7 +105,7 @@
       const first = fl[0], last = fl[fl.length - 1];
       return '<div class="hg-alcard ' + (caught ? "caught" : "seen") + '">' +
         '<button type="button" class="hg-cover' + (coverIds.length ? " has" : "") + '" data-k="' + esc(coverK || k) + '"' + (coverK ? "" : ' data-reg="1"') + (coverIds.length ? ' aria-label="Open photos of ' + esc(label) + '"' : ' tabindex="-1" aria-hidden="true"') + '>' +
-          (coverIds.length ? '<img alt="" data-thumb="' + coverIds[coverIds.length - 1] + '">' : '<span class="hg-pic">' + PLANE + '</span>') +
+          (coverIds.length ? '<img alt="" data-thumb="' + coverIds[coverIds.length - 1] + '">' : '<span class="hg-pic">' + icon(c.name, caught) + '</span>') +
           '<span class="hg-badge">' + (caught ? "Caught" : "Seen") + '</span>' +
           (caught ? '<span class="hg-how">' + (byEmail ? "✓ Email" : "") + (byEmail && byReg ? " · " : "") + (byReg ? "✓ Registration" : "") + '</span>' : "") +
           (ids.length ? '<span class="hg-pcount">' + ids.length + (ids.length === 1 ? " photo" : " photos") + '</span>' : "") +
@@ -192,10 +194,8 @@
       const png = await new Promise(r => cv.toBlob(r, "image/png"));
       const name = "contrail-caught-" + reg + ".png", file = new File([png], name, { type: "image/png" });
       const text = "Caught the " + type + (airline ? " with " + airline : "") + " (" + reg + ") ✈️";
-      if(navigator.canShare && navigator.canShare({ files: [file] })){
-        try{ await navigator.share({ files: [file], title: "Caught: " + type, text }); msg.textContent = ""; }
-        catch(e){ msg.textContent = e && e.name === "AbortError" ? "" : "Sharing didn't work, so the card was saved instead."; if(!(e && e.name === "AbortError")) save(png, name); }
-      }else{ save(png, name); msg.textContent = "Saved " + name + ". Share it from your downloads."; }
+      const r = await window.ContrailUtil.shareImage(png, name, "Caught: " + type, text);
+      msg.textContent = r === "saved" ? "Saved " + name + ". Share it from your downloads." : "";
     }catch(e){ msg.textContent = "Couldn't make the card (" + ((e && e.message) || "error") + ")."; }
     finally{ btn.disabled = false; }
   }
@@ -206,7 +206,7 @@
   function renderDetail(c){
     $("hgList").hidden = true; $("hgDetail").hidden = false;
     $("hgDetail").innerHTML = '<button type="button" class="btn quiet hg-back" id="hgBack">‹ All aircraft</button>' +
-      '<div class="hg-dhead t-' + c.tier.id + ' ' + c.state + '"><span class="hg-pic">' + PLANE + '</span><div>' +
+      '<div class="hg-dhead t-' + c.tier.id + ' ' + c.state + '"><span class="hg-pic">' + icon(c.name, c.state === "caught") + '</span><div>' +
         '<span class="hg-top"><span class="hg-no">#' + String(c.no).padStart(3, "0") + '</span><span class="hg-tier">' + c.tier.label + '</span></span>' +
         '<h3>' + esc(c.name) + '</h3><span class="hg-dsub">' + (c.state === "caught" ? "Caught" : "Seen") + ' · ' + c.flights + (c.flights === 1 ? " flight" : " flights") +
         ' · ' + c.airlines.length + (c.airlines.length === 1 ? " airline" : " airlines") + '</span></div></div>' +
