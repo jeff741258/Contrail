@@ -265,7 +265,31 @@ function fit(){
   view={s:Math.max(a,Math.min(b*0.3,W/((l1-l0)*1.2+10),H/((m1-m0)*1.35+10))),cLon:(l0+l1)/2,cMy:(m0+m1)/2};
   clampView(W,H);
 }
+// Route chart period: All time, YTD, or the last 12 months. The airport picker and details follow it.
+const MKEY="contrail.mapPeriod";
+let mapPeriod="all",mapAll=[];
+try{mapPeriod=localStorage.getItem(MKEY)||"all";}catch(e){}
+const MAP_PERIODS=[
+  {id:"all",label:"All time",test:()=>true},
+  {id:"ytd",label:"YTD",test:(f,t)=>f.date.slice(0,4)===t.slice(0,4)&&f.date<=t},
+  {id:"1y",label:"1 year",test:(f,t,y)=>f.date>y&&f.date<=t}
+];
+function mapFilter(list){
+  const today=new Date().toISOString().slice(0,10);
+  const yearAgo=new Date(Date.now()-365*864e5).toISOString().slice(0,10);
+  const p=MAP_PERIODS.find(x=>x.id===mapPeriod)||MAP_PERIODS[0];
+  return list.filter(f=>p.test(f,today,yearAgo));
+}
+function renderMapTabs(){
+  const all=mapAll;
+  $("mapTabs").innerHTML=all.length?MAP_PERIODS.map(p=>{
+    const today=new Date().toISOString().slice(0,10),yearAgo=new Date(Date.now()-365*864e5).toISOString().slice(0,10);
+    const n=all.filter(f=>p.test(f,today,yearAgo)).length;
+    return `<button type="button" role="tab" class="ltab" data-period="${p.id}" aria-selected="${p.id===mapPeriod}">${p.label}<span>${n}</span></button>`;}).join(""):"";
+}
 function drawMap(list){
+  mapAll=list;renderMapTabs();
+  list=mapFilter(list);
   const used=new Set();list.forEach(f=>{used.add(f.from);used.add(f.to)});
   const routes={},dir={};list.forEach(f=>{const k=[f.from,f.to].sort().join("-");routes[k]=(routes[k]||0)+1;dir[f.from+"-"+f.to]=(dir[f.from+"-"+f.to]||0)+1;});
   const sig=Object.entries(routes).map(e=>e.join(":")).sort().join("|");
@@ -341,7 +365,7 @@ function paint(){
       for(const p of placed){if(Math.abs(p.x-lx)<tw+4&&Math.abs(p.y-ly)<12){ly=y+16;break;}}
       placed.push({x:lx,y:ly});ctx.fillStyle=C.ink;ctx.fillText(c,lx,Math.max(13,ly));});});
   ctx.globalAlpha=1;
-  if(!model.arcs.length){ctx.fillStyle=C.muted;ctx.font="14px "+cssv("--f-body");ctx.textAlign="center";ctx.fillText("Your routes will be drawn here",W/2,H/2);ctx.textAlign="start";}
+  if(!model.arcs.length){ctx.fillStyle=C.muted;ctx.font="14px "+cssv("--f-body");ctx.textAlign="center";ctx.fillText(mapAll.length?"No flights in this period":"Your routes will be drawn here",W/2,H/2);ctx.textAlign="start";}
   $("zIn").disabled=view.s>=sLim(W,H)[1]-1e-6;$("zOut").disabled=view.s<=sLim(W,H)[0]+1e-6;
 }
 
@@ -364,7 +388,7 @@ function renderAirport(list,used){
     `<div class="ap-cols">${col("out","Outbound",outs,kmOut,"to")}${col("in","Inbound",ins,kmIn,"from")}</div>`;
   P.hidden=false;
 }
-function setSel(c){sel=c||null;renderAirport(flights,new Set(model.used));paint();}
+function setSel(c){sel=c||null;renderAirport(mapFilter(mapAll),new Set(model.used));paint();}
 
 // ---------- import UI ----------
 const SAMPLE=`From: Alaska Airlines <no-reply@alaskaair.com>
@@ -494,6 +518,9 @@ function hitAt(x,y){let best=null,bd=18;mapPts.forEach(p=>{const d=Math.hypot(p.
   $("zWorld").addEventListener("click",()=>{const {W,H}=dims();view.s=0;view.cMy=my(20);clampView(W,H);schedule();});
 })();
 $("apPick").addEventListener("change",e=>setSel(e.target.value));
+$("mapTabs").addEventListener("click",e=>{const b=e.target.closest(".ltab");if(!b)return;
+  mapPeriod=b.dataset.period;try{localStorage.setItem(MKEY,mapPeriod);}catch(_){}
+  drawMap(mapAll);const s=$("mapTabs").querySelector('[aria-selected="true"]');if(s&&s.focus)s.focus();});
 $("apPanel").addEventListener("click",e=>{if(e.target.closest("#apClear"))setSel(null);});
 
 // theme + resize redraws
