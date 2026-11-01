@@ -473,6 +473,27 @@ function clampView(W,H){
   const half=H/2/view.s;view.cMy=half>=MYMAX?0:Math.max(-MYMAX+half,Math.min(MYMAX-half,view.cMy));
   view.cLon=((view.cLon+180)%360+360)%360-180;
 }
+// ---------- smooth zoom ----------
+// glide(target): eases the view to a new centre and zoom over ~0.45 s. Zoom changes on a log scale so
+// zooming in and out feel even; the centre takes the short way round the date line.
+let glideRaf=0,glideTarget=null;
+const reduceMotion=()=>{try{return matchMedia("(prefers-reduced-motion: reduce)").matches;}catch(_){return false;}};
+function stopGlide(){if(glideRaf)cancelAnimationFrame(glideRaf);glideRaf=0;glideTarget=null;}
+function glide(t,ms){
+  const {W,H}=dims();
+  if(!view||reduceMotion()){view={...t};clampView(W,H);stopGlide();schedule();return;}
+  stopGlide();glideTarget={...t};
+  const from={...view},dLon=((t.cLon-from.cLon+540)%360)-180,ls0=Math.log(from.s),ls1=Math.log(t.s),t0=performance.now(),dur=ms||450;
+  const ease=u=>u<.5?4*u*u*u:1-Math.pow(-2*u+2,3)/2;
+  const step=now=>{const u=Math.min(1,(now-t0)/dur),e=ease(u);
+    view.s=Math.exp(ls0+(ls1-ls0)*e);view.cLon=from.cLon+dLon*e;view.cMy=from.cMy+(t.cMy-from.cMy)*e;
+    const d=dims();clampView(d.W,d.H);paint();
+    glideRaf=u<1?requestAnimationFrame(step):0;if(u>=1)glideTarget=null;};
+  glideRaf=requestAnimationFrame(step);
+}
+// the view fit() would choose, without jumping there
+function fitTarget(code){const old=view;fit(code);const t={...view};view=old;return t;}
+function smoothFit(code){if(!view){fit(code);schedule();return;}glide(fitTarget(code));}
 // fit(code): with an airport code, frames just that airport and every route to or from it
 function fit(code){
   const {W,H}=dims();
@@ -526,7 +547,7 @@ function drawMap(list){
       let b0=1e9,b1=-1e9;pts.forEach(([x])=>{b0=Math.min(b0,x);b1=Math.max(b1,x);});return {a,b,c,pts,b0,b1};}).sort((p,q)=>p.c-q.c);
     model={arcs,used:[...used],dir,sig};
     if(sel&&!used.has(sel))sel=null;
-    fit(sel);
+    smoothFit(sel);
   }else{model.used=[...used];model.dir=dir;}
   if(sel&&!used.has(sel))sel=null;
   $("mapBounds").textContent=used.size?`${model.arcs.length} routes · ${used.size} airports`:"";
@@ -623,7 +644,7 @@ function renderAirport(list,used){
   P.hidden=false;
 }
 // picking an airport zooms to it and all its routes; "Show all routes" zooms back out to everything
-function setSel(c){sel=c||null;fit(sel);renderAirport(mapFilter(mapAll),new Set(model.used));paint();}
+function setSel(c){sel=c||null;smoothFit(sel);renderAirport(mapFilter(mapAll),new Set(model.used));paint();}
 
 // ---------- import UI ----------
 const SAMPLE=`From: Alaska Airlines <no-reply@alaskaair.com>
@@ -762,16 +783,20 @@ $("copyCsv").addEventListener("click",()=>{
 });
 
 // map interaction: drag to pan, wheel / pinch / buttons to zoom, tap an airport to select
-function zoomAt(px,py,f){const {W,H}=dims();const s=view.s;
-  const lon=view.cLon+(px-W/2)/s,m=view.cMy-(py-H/2)/s;
+// zoomAt: zoom by f keeping the point under (px,py) still. smooth: ease there (buttons, keys, mouse wheel
+// clicks); pinch and trackpad scrolling follow the fingers directly. Quick repeats build on the zoom in progress.
+function zoomAt(px,py,f,smooth,ms){const {W,H}=dims();const base=smooth&&glideTarget?glideTarget:view,s=base.s;
+  const lon=base.cLon+(px-W/2)/s,m=base.cMy-(py-H/2)/s;
   const [a,b]=sLim(W,H);const s2=Math.max(a,Math.min(b,s*f));
-  view.s=s2;view.cLon=lon-(px-W/2)/s2;view.cMy=m+(py-H/2)/s2;clampView(W,H);schedule();}
+  const t={s:s2,cLon:lon-(px-W/2)/s2,cMy:m+(py-H/2)/s2};
+  if(smooth){glide(t,ms||320);return;}
+  stopGlide();Object.assign(view,t);clampView(W,H);schedule();}
 function local(e){const r=$("map").getBoundingClientRect();return [e.clientX-r.left,e.clientY-r.top];}
 function hitAt(x,y){let best=null,bd=18;mapPts.forEach(p=>{const d=Math.hypot(p.x-x,p.y-y);if(d<bd){bd=d;best=p.c;}});return best;}
 (function(){
   const cv=$("map"),ptrs=new Map();let moved=0,pinchD=0,pinchM=null;
   const two=()=>{const [a,b]=[...ptrs.values()];return {d:Math.hypot(a.x-b.x,a.y-b.y),m:[(a.x+b.x)/2,(a.y+b.y)/2]};};
-  cv.addEventListener("pointerdown",e=>{if(e.button>0)return;try{cv.setPointerCapture(e.pointerId);}catch(_){}
+  cv.addEventListener("pointerdown",e=>{if(e.button>0)return;stopGlide();try{cv.setPointerCapture(e.pointerId);}catch(_){}
     ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});if(ptrs.size===1)moved=0;
     if(ptrs.size===2){const t=two();pinchD=t.d;pinchM=t.m;}cv.classList.add("grabbing");});
   cv.addEventListener("pointermove",e=>{
@@ -785,17 +810,21 @@ function hitAt(x,y){let best=null,bd=18;mapPts.forEach(p=>{const d=Math.hypot(p.
     if(e.type==="pointerup"&&ptrs.size===1&&moved<6){const [x,y]=local(e);const c=hitAt(x,y);setSel(c&&c!==sel?c:null);}
     ptrs.delete(e.pointerId);if(ptrs.size<2)pinchD=0;if(!ptrs.size)cv.classList.remove("grabbing");};
   cv.addEventListener("pointerup",end);cv.addEventListener("pointercancel",end);
-  cv.addEventListener("wheel",e=>{e.preventDefault();const [x,y]=local(e);zoomAt(x,y,Math.exp(-e.deltaY*(e.deltaMode?0.05:0.0018)));},{passive:false});
-  cv.addEventListener("dblclick",e=>{const [x,y]=local(e);zoomAt(x,y,e.shiftKey?0.5:2);});
+  cv.addEventListener("wheel",e=>{e.preventDefault();const [x,y]=local(e);
+    // a mouse wheel moves in big notches, so ease each one; a trackpad sends many tiny steps, so follow it directly
+    const notch=e.deltaMode!==0||(Math.abs(e.deltaY)>=50&&Number.isInteger(e.deltaY)&&!e.ctrlKey);
+    zoomAt(x,y,Math.exp(-e.deltaY*(e.deltaMode?0.05:0.0018)),notch,200);},{passive:false});
+  cv.addEventListener("dblclick",e=>{const [x,y]=local(e);zoomAt(x,y,e.shiftKey?0.5:2,true);});
   cv.addEventListener("keydown",e=>{const {W,H}=dims(),st=60/view.s;let used=true;
     if(e.key==="ArrowLeft")view.cLon-=st;else if(e.key==="ArrowRight")view.cLon+=st;else if(e.key==="ArrowUp")view.cMy+=st;else if(e.key==="ArrowDown")view.cMy-=st;
-    else if(e.key==="+"||e.key==="=")return zoomAt(W/2,H/2,1.5),e.preventDefault();else if(e.key==="-"||e.key==="_")return zoomAt(W/2,H/2,1/1.5),e.preventDefault();
-    else if(e.key==="0"){fit(sel);}else used=false;
+    else if(e.key==="+"||e.key==="=")return zoomAt(W/2,H/2,1.5,true),e.preventDefault();else if(e.key==="-"||e.key==="_")return zoomAt(W/2,H/2,1/1.5,true),e.preventDefault();
+    else if(e.key==="0"){e.preventDefault();return smoothFit(sel);}else used=false;
+    if(used)stopGlide();
     if(used){e.preventDefault();clampView(W,H);schedule();}});
-  $("zIn").addEventListener("click",()=>{const {W,H}=dims();zoomAt(W/2,H/2,1.6);});
-  $("zOut").addEventListener("click",()=>{const {W,H}=dims();zoomAt(W/2,H/2,1/1.6);});
-  $("zFit").addEventListener("click",()=>{fit(sel);schedule();});
-  $("zWorld").addEventListener("click",()=>{const {W,H}=dims();view.s=0;view.cMy=my(20);clampView(W,H);schedule();});
+  $("zIn").addEventListener("click",()=>{const {W,H}=dims();zoomAt(W/2,H/2,1.6,true);});
+  $("zOut").addEventListener("click",()=>{const {W,H}=dims();zoomAt(W/2,H/2,1/1.6,true);});
+  $("zFit").addEventListener("click",()=>smoothFit(sel));
+  $("zWorld").addEventListener("click",()=>{const {W,H}=dims();glide({s:sLim(W,H)[0],cLon:view.cLon,cMy:my(20)});});
 })();
 $("apPick").addEventListener("change",e=>setSel(e.target.value));
 $("mapTabs").addEventListener("click",e=>{const b=e.target.closest(".ltab");if(!b)return;
@@ -939,6 +968,7 @@ window.ContrailApp={getDoc,setDoc,keyOf,parseEmails,reviewCandidates,dropNumberl
 // ---------- Map tab: export the current map with an airport summary as a PNG ----------
 // Uses exactly what's on screen: the period, the selected airport, zoom and position, and the theme.
 function exportMapImage(){
+  if(glideTarget){const t=glideTarget;stopGlide();view={...t};} // finish any zoom in progress first
   const src=$("map"),list=mapFilter(mapAll);
   if(!list.length){mapExSay("There are no flights on the map to export yet.",true);return;}
   const C={bg:cssv("--bg"),surf:cssv("--surface"),line:cssv("--line"),ink:cssv("--ink"),muted:cssv("--muted"),acc:cssv("--accent"),sig:cssv("--signal")};
