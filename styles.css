@@ -391,3 +391,6 @@ a.yr:hover b,a.yr:hover span:first-child{color:var(--accent)}
 /* the name at the top goes to Overview */
 a.brand{color:var(--ink);text-decoration:none;border-radius:4px}
 a.brand:hover{color:var(--accent)}
+
+.ap-all{align-self:flex-start;color:var(--accent);font-weight:600;font-size:14px;text-decoration:none}
+.ap-all:hover{text-decoration:underline}

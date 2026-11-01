@@ -552,21 +552,25 @@ function paint(){
   for(let g=Math.ceil(L/stLon)*stLon;g<=R;g+=stLon){const x=Math.round(X(g))+.5;ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();
     const gl=((g+540)%360)-180;ctx.fillText(Math.abs(gl)+"°"+(gl<0&&gl>-180?"W":gl>0?"E":""),x+3,H-5);}
   for(let g=Math.ceil(latB/stLat)*stLat;g<=latT;g+=stLat){if(Math.abs(g)>MAXLAT)continue;const y=Math.round(Y(g))+.5;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();if(y>H-20||y<14)continue;ctx.fillText(Math.abs(g)+"°"+(g<0?"S":g>0?"N":""),4,y-3);}
-  // routes
+  // routes: line thickness grows gently with times flown (square-root scale), from 1.5 px up to 5 px at most
+  const routeWidth=(c,max)=>c<=1||max<=1?1.5:1.5+3.5*Math.sqrt((c-1)/(max-1));
+  const maxDir=Math.max(1,...Object.values(model.dir));
   ctx.lineCap="round";ctx.lineJoin="round";
   const stroke=(sp,off)=>{ctx.beginPath();sp.forEach(([x,y],i)=>{const a=sp[Math.max(0,i-1)],b=sp[Math.min(sp.length-1,i+1)];
     let nx=-(b[1]-a[1]),ny=b[0]-a[0];const l=Math.hypot(nx,ny)||1;const px=x+nx/l*off,py=y+ny/l*off;i?ctx.lineTo(px,py):ctx.moveTo(px,py);});ctx.stroke();};
   const maxC=Math.max(1,...model.arcs.map(a=>a.c)),hot=[];
   model.arcs.forEach(r=>{
     if(sel&&(r.a===sel||r.b===sel)){hot.push(r);return;}
-    ctx.lineWidth=1.4+2.6*(r.c-1)/Math.max(1,maxC-1);
+    ctx.lineWidth=routeWidth(r.c,maxC);
     ctx.strokeStyle=sel?C.muted:F[bucket(r.c)];ctx.globalAlpha=sel?.22:.95;
     offsets(r.b0,r.b1,L,R).forEach(off=>stroke(r.pts.map(([lo,la])=>[X(lo+off),Y(la)]),0));});
   ctx.globalAlpha=1;
   hot.forEach(r=>{const other=r.a===sel?r.b:r.a;const out=model.dir[sel+"-"+other]||0,inn=model.dir[other+"-"+sel]||0,both=out&&inn,sgn=r.a===sel?1:-1;
     offsets(r.b0,r.b1,L,R).forEach(off=>{const sp=r.pts.map(([lo,la])=>[X(lo+off),Y(la)]);
-      if(out){ctx.strokeStyle=C.acc;ctx.lineWidth=1.9+1.5*(out-1);stroke(sp,both?2.3*sgn:0);}
-      if(inn){ctx.strokeStyle=C.sig;ctx.lineWidth=1.9+1.5*(inn-1);stroke(sp,both?-2.3*sgn:0);}});});
+      // each direction sits on its own side of the route, offset by half of both widths so they never overlap
+      const wo=routeWidth(out,maxDir),wi=routeWidth(inn,maxDir),gap=both?(wo+wi)/4+0.6:0;
+      if(out){ctx.strokeStyle=C.acc;ctx.lineWidth=wo;stroke(sp,both?gap*sgn:0);}
+      if(inn){ctx.strokeStyle=C.sig;ctx.lineWidth=wi;stroke(sp,both?-gap*sgn:0);}});});
   // airports
   const placed=[];mapPts=[];
   model.used.forEach(c=>{const a=AP[c];
@@ -598,9 +602,10 @@ function renderAirport(list,used){
   const peers=new Set();outs.forEach(f=>peers.add(f.to));ins.forEach(f=>peers.add(f.from));
   const row=(f,other)=>`<li><span class="d">${f.date}</span><b>${other}</b><span class="c">${esc(AP[other].city)}${f.airline?" · "+f.airline+" "+f.num:""}</span><span class="km">${fmtDist(distKm(f.from,f.to))}</span></li>`;
   const col=(cls,title,arr,km,key)=>`<div class="ap-col"><div class="ap-h"><i class="sw ${cls}"></i><span class="label">${title}</span><span class="n">${arr.length}</span></div>`+
-    (arr.length?`<ul>${arr.map(f=>row(f,f[key])).join("")}</ul><div class="ap-sum">${fmtDist(km)} ${unit} total</div>`:`<p class="ap-none">No ${title.toLowerCase()} flights logged.</p>`)+`</div>`;
+    (arr.length?`<ul>${arr.slice(0,8).map(f=>row(f,f[key])).join("")}</ul><div class="ap-sum">${arr.length>8?`${arr.length-8} more · `:""}${fmtDist(km)} ${unit} total</div>`:`<p class="ap-none">No ${title.toLowerCase()} flights logged.</p>`)+`</div>`;
   P.innerHTML=`<div class="ap-top"><div><span class="ap-code">${sel}</span><span class="ap-city">${esc(AP[sel].city)} · ${outs.length+ins.length} flights · ${peers.size} connected ${peers.size===1?"airport":"airports"}</span></div><button class="btn quiet" id="apClear">Show all routes</button></div>`+
-    `<div class="ap-cols">${col("out","Outbound",outs,kmOut,"to")}${col("in","Inbound",ins,kmIn,"from")}</div>`;
+    `<div class="ap-cols">${col("out","Outbound",outs,kmOut,"to")}${col("in","Inbound",ins,kmIn,"from")}</div>`+
+    (outs.length>8||ins.length>8?`<a class="ap-all" href="#log" data-ap="${sel}">See all ${outs.length+ins.length} ${sel} flights in the flight log ›</a>`:"");
   P.hidden=false;
 }
 function setSel(c){sel=c||null;renderAirport(mapFilter(mapAll),new Set(model.used));paint();}
@@ -777,7 +782,8 @@ $("apPick").addEventListener("change",e=>setSel(e.target.value));
 $("mapTabs").addEventListener("click",e=>{const b=e.target.closest(".ltab");if(!b)return;
   mapPeriod=b.dataset.period;try{localStorage.setItem(MKEY,mapPeriod);}catch(_){}
   drawMap(mapAll);const s=$("mapTabs").querySelector('[aria-selected="true"]');if(s&&s.focus)s.focus();});
-$("apPanel").addEventListener("click",e=>{if(e.target.closest("#apClear"))setSel(null);});
+$("apPanel").addEventListener("click",e=>{if(e.target.closest("#apClear"))setSel(null);
+  const all=e.target.closest(".ap-all");if(all&&typeof openLogWith==="function")openLogWith({ap:all.dataset.ap});});
 
 // theme + resize redraws
 window.addEventListener("resize",schedule);
