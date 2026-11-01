@@ -259,3 +259,20 @@ body.noscroll{overflow:hidden}
 .pvconfirm .btn{background:#C8372D;border-color:#C8372D;color:#fff}
 .pvconfirm .btn.quiet{background:transparent;border-color:transparent;color:#EEF2F8}
 @media (max-width:520px){.pvstage{grid-template-columns:0 minmax(0,1fr) 0;padding:0 4px 12px}.pvnav{position:absolute;bottom:calc(20px + env(safe-area-inset-bottom,0px))}#pvPrev{left:24px}#pvNext{right:24px}}
+
+/* privacy */
+.plist{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;font-size:14px;line-height:1.5;max-width:68ch}
+.plist b{font-weight:600}
+.wipe{border-top:1px solid var(--line);padding-top:12px;display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+.wipe h3{font-size:16px;font-weight:700}
+.wipe .hint{margin:0}
+.btn.danger{color:var(--danger);border-color:var(--danger);background:transparent}
+.btn.danger:hover:not(:disabled){background:color-mix(in srgb,var(--danger) 10%,transparent)}
+.btn.danger.solid{background:var(--danger);color:var(--surface)}
+.btn.danger.solid:disabled{opacity:.4}
+.wipe-confirm{display:flex;flex-direction:column;gap:8px;width:100%;max-width:520px;border:1px solid var(--danger);border-radius:10px;padding:12px}
+.wipe-confirm p{margin:0;font-size:14px}
+.wipe-cloud{display:flex;gap:8px;align-items:flex-start;font-size:14px}
+.wipe-cloud input{margin-top:3px;accent-color:var(--danger)}
+.wipe-type{font-size:12px;color:var(--muted);font-family:var(--f-mono);letter-spacing:.06em;text-transform:uppercase}
+#wipeType{border:1px solid var(--line);border-radius:8px;background:var(--bg);padding:8px 10px;font-family:var(--f-mono);font-size:15px;width:100%;max-width:220px}

@@ -38,7 +38,8 @@
       .filter(p => liveFlights.has(p.k) && (!deleted.has("p:" + p.id) || (p.added || 0) > deleted.get("p:" + p.id)))
       .sort((x, y) => (x.added || 0) - (y.added || 0));
     const removed = [...deleted.entries()].map(([k, at]) => ({ k, at })).sort((x, y) => x.at - y.at).slice(-1000);
-    return { app: "Contrail", format: 2, updatedAt: Date.now(), flights, photos, removed };
+    const wipedAt = Math.max((a && a.wipedAt) || 0, (b && b.wipedAt) || 0);
+    return { app: "Contrail", format: 2, updatedAt: Date.now(), wipedAt, flights, photos, removed };
   }
   function fingerprint(doc){
     if(!doc) return "";
@@ -58,6 +59,10 @@
   async function syncOnce(){
     const p = PROVIDERS[S.active];
     const remote = await p.load();
+    // Another device used "Delete all data" since this one last synced: clear this device's copy too.
+    if(remote && (remote.wipedAt || 0) > window.ContrailApp.wipeSeen()){
+      await window.ContrailApp.wipeLocal(false, remote.wipedAt);
+    }
     const local = window.ContrailApp.getDoc();
     const merged = merge(local, remote);
     if(fingerprint(merged) !== fingerprint(local)) window.ContrailApp.setDoc(merged);
@@ -165,11 +170,12 @@
     PROVIDERS[id].signIn().catch(e => set("reconnect", e && e.code === "cancelled" ? "" : (e && e.message)));
   });
   $("cbSync").addEventListener("click", () => sync());
-  $("cbSignOut").addEventListener("click", () => {
+  function signOut(){
     const p = PROVIDERS[S.active];
     if(p) p.signOut().catch(()=>{});
     S.active = null; S.user = null; remember(null); set("off");
-  });
+  }
+  $("cbSignOut").addEventListener("click", signOut);
 
   // Pick up changes from other devices: right away when the user comes back to the tab,
   // and every minute (config: sync.intervalSeconds) while the app is open and on screen.
@@ -189,6 +195,9 @@
     merge, fingerprint, state: S,
     // The signed-in storage provider, if it's connected right now.
     provider(){ return S.active && S.state !== "reconnect" ? PROVIDERS[S.active] : null; },
+    signOut,
+    // Waits for any sync in progress, so "Delete all data" doesn't race with one.
+    idle(){ clearTimeout(timer); return running || Promise.resolve(); },
     // Called by app.js after every local edit; batches quick edits into one sync.
     changed(){
       if(!S.active || S.state === "reconnect") return;

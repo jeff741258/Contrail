@@ -266,6 +266,13 @@
     addFiles(inp.dataset.k, files);
   });
 
-  window.ContrailPhotos = { drawer, hydrate, pump, prune, deletePhoto };
+  // Deletes every photo stored in this browser.
+  async function wipe(){
+    Object.keys(urls).forEach(id => { URL.revokeObjectURL(urls[id]); delete urls[id]; });
+    if(dbp){ try{ (await dbp).close(); }catch(_){} dbp = null; }
+    await new Promise(resolve => { const r = indexedDB.deleteDatabase("contrail"); r.onsuccess = r.onerror = r.onblocked = () => resolve(); });
+  }
+
+  window.ContrailPhotos = { drawer, hydrate, pump, prune, deletePhoto, wipe };
   App.refreshLog(); // draw photo buttons now that photos are available
 })();

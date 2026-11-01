@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="styles.css?v=20261031c">
+<link rel="stylesheet" href="styles.css?v=20261031d">
 </head>
 <body>
 <div class="wrap">
@@ -145,19 +145,48 @@
     </div>
   </section>
 
+  <section id="privacy">
+    <div class="sec-h"><h2>Privacy</h2></div>
+    <div class="panel opt">
+      <ul class="plist">
+        <li><b>What's kept.</b> For each flight: the date, airline, flight number, and departure and arrival airports. No names, booking codes, seats, prices or email text.</li>
+        <li><b>Emails</b> are read in your browser to find flights and are never saved or sent anywhere.</li>
+        <li><b>Photos</b> are resized and re-saved before they're kept, which removes hidden details such as GPS location.</li>
+        <li><b>Where it lives.</b> In this browser, and in your own Google Drive, OneDrive or iCloud if you sign in. Contrail has no server and no account of its own; nobody else can see your log.</li>
+      </ul>
+      <div class="wipe">
+        <h3>Delete all data</h3>
+        <p class="hint">Remove every flight, photo, sign-in and setting Contrail has stored, and optionally your cloud copy.</p>
+        <button class="btn danger" id="wipeOpen" type="button">Delete all data…</button>
+        <form class="wipe-confirm" id="wipeForm" hidden>
+          <p id="wipeWhat"></p>
+          <label class="wipe-cloud" id="wipeCloudRow" hidden><input type="checkbox" id="wipeCloud"> <span id="wipeCloudLabel"></span></label>
+          <label class="wipe-type" for="wipeType">Type DELETE to confirm</label>
+          <input id="wipeType" autocomplete="off" autocapitalize="characters" spellcheck="false">
+          <div class="row">
+            <button class="btn danger solid" id="wipeGo" type="submit" disabled>Delete everything</button>
+            <button class="btn quiet" id="wipeCancel" type="button">Cancel</button>
+          </div>
+        </form>
+        <p class="msg" id="wipeMsg" role="status"></p>
+      </div>
+    </div>
+  </section>
+
   <footer><span id="footStore">Contrail keeps your log in this browser and, once you sign in, in your own cloud account.</span> Distances are great-circle, airport to airport; hours aloft are estimated at 800 km/h plus 30 minutes per flight. The parser knows about 230 airports and 80 airlines. Coastlines from Natural Earth.</footer>
 </div>
 
-<script src="land.js?v=20261031c"></script>
-<script src="app.js?v=20261031c"></script>
-<script src="config.js?v=20261031c"></script>
-<script src="common.js?v=20261031c"></script>
-<script src="msauth.js?v=20261031c"></script>
-<script src="google.js?v=20261031c"></script>
-<script src="microsoft.js?v=20261031c"></script>
-<script src="apple.js?v=20261031c"></script>
-<script src="sync.js?v=20261031c"></script>
-<script src="mail.js?v=20261031c"></script>
-<script src="photos.js?v=20261031c"></script>
+<script src="land.js?v=20261031d"></script>
+<script src="app.js?v=20261031d"></script>
+<script src="config.js?v=20261031d"></script>
+<script src="common.js?v=20261031d"></script>
+<script src="msauth.js?v=20261031d"></script>
+<script src="google.js?v=20261031d"></script>
+<script src="microsoft.js?v=20261031d"></script>
+<script src="apple.js?v=20261031d"></script>
+<script src="sync.js?v=20261031d"></script>
+<script src="mail.js?v=20261031d"></script>
+<script src="photos.js?v=20261031d"></script>
+<script src="privacy.js?v=20261031d"></script>
 </body>
 </html>

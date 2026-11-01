@@ -579,7 +579,7 @@ function normalizeRow(r){
   return AP[f.from]&&AP[f.to]&&f.from!==f.to&&/^\d{4}-\d{2}-\d{2}$/.test(f.date)?f:null;
 }
 function getDoc(){
-  return {app:"Contrail",format:2,updatedAt:Date.now(),
+  return {app:"Contrail",format:2,updatedAt:Date.now(),wipedAt:wipeSeen(),
     flights:real().slice().sort((a,b)=>a.date.localeCompare(b.date)).map(f=>({date:f.date,airline:f.airline||"",flight:f.num||"",from:f.from,to:f.to,added:f.added||0})),
     photos:photos.filter(p=>real().some(f=>keyOf(f)===p.k)).map(p=>({id:p.id,k:p.k,added:p.added})),
     removed:removed.slice(-1000)};
@@ -592,6 +592,27 @@ function setDoc(doc){
   saveLocal();render();
   if(window.ContrailPhotos)window.ContrailPhotos.prune(photos.map(p=>p.id));
 }
+// ---------- delete all data ----------
+// wipedAt: when this log was last wiped with "Delete all data". It travels with the cloud copy so the
+// user's other devices clear themselves too instead of re-uploading what they still have.
+const WIPE_KEY="contrail.wipeSeen";
+function wipeSeen(){try{return Number(localStorage.getItem(WIPE_KEY))||0;}catch(_){return 0;}}
+const DATA_KEYS=["contrail.flights.v1","contrail.removed.v1","contrail.photos.v1","contrail.photos.del","contrail.mail.last.gmail","contrail.mail.last.outlook"];
+// full=true: everything Contrail ever stored in this browser (sign-ins, settings, data).
+// full=false: just the log and photos (used when another device wiped the account copy).
+async function wipeLocal(full,wipedAt){
+  try{
+    if(full){
+      [localStorage,sessionStorage].forEach(st=>Object.keys(st).filter(k=>k.startsWith("contrail.")).forEach(k=>st.removeItem(k)));
+    }else DATA_KEYS.forEach(k=>localStorage.removeItem(k));
+    if(wipedAt)localStorage.setItem(WIPE_KEY,String(wipedAt));
+  }catch(_){}
+  if(window.ContrailPhotos)await window.ContrailPhotos.wipe();
+  flights=EXAMPLES.map(f=>Object.assign({},f,{id:uid(),example:true}));removed=[];photos=[];openPh=null;
+  logTab="all";logPage=0;mapPeriod="all";sel=null;
+  render();
+}
+
 // ---------- bridge for photos.js ----------
 function addPhotoMeta(k,id){const now=Date.now();removed=removed.filter(r=>r.k!=="p:"+id);photos.push({id,k,added:now});save();}
 function removePhotoMeta(id){photos=photos.filter(p=>p.id!==id);removed=removed.filter(r=>r.k!=="p:"+id);removed.push({k:"p:"+id,at:Date.now()});save();}
@@ -623,7 +644,8 @@ function removeFlights(ids){
   save();render();
 }
 window.ContrailApp={getDoc,setDoc,keyOf,parseEmails,reviewCandidates,dropNumberless,addImported,removeFlights,
-  photoIds:()=>photos.map(p=>p.id),addPhotoMeta,removePhotoMeta,refreshLog,flightLabel};
+  photoIds:()=>photos.map(p=>p.id),addPhotoMeta,removePhotoMeta,refreshLog,flightLabel,wipeLocal,wipeSeen,
+  counts:()=>({flights:real().length,photos:photos.length})};
 
 load();render();
 })();

@@ -140,6 +140,18 @@
     }
   };
 
+  // Deletes every photo file and replaces the log with an empty one that records the wipe.
+  Google.wipe = async function(marker){
+    let page = "";
+    do{
+      const q = encodeURIComponent("name contains 'photo-'");
+      const r = await (await api("https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&pageSize=1000&fields=nextPageToken,files(id)&q=" + q + (page ? "&pageToken=" + page : ""))).json();
+      for(const f of r.files || []) await api("https://www.googleapis.com/drive/v3/files/" + f.id, { method: "DELETE" });
+      page = r.nextPageToken || "";
+    }while(page);
+    await Google.save(marker);
+  };
+
   async function findPhoto(id){
     const q = encodeURIComponent("name='photo-" + id + ".jpg'");
     const r = await (await api("https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&pageSize=1&fields=files(id)&q=" + q)).json();

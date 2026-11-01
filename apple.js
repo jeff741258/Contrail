@@ -80,5 +80,8 @@
     }
   };
 
+  // iCloud holds only the log (no photos yet): replace it with an empty one that records the wipe.
+  Apple.wipe = async function(marker){ await Apple.load().catch(()=>null); await Apple.save(marker); };
+
   window.ContrailProviders.apple = Apple;
 })();

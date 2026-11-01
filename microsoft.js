@@ -73,5 +73,12 @@
     }
   };
 
+  // Deletes the photos folder and replaces the log with an empty one that records the wipe.
+  Microsoft.wipe = async function(marker){
+    const r = await auth.graph("/me/drive/special/approot:/photos:", { method: "DELETE" });
+    if(!r.ok && r.status !== 404) throw U.err("http", "OneDrive returned an error (" + r.status + ").");
+    await Microsoft.save(marker);
+  };
+
   window.ContrailProviders.microsoft = Microsoft;
 })();
