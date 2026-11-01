@@ -19,29 +19,6 @@
     </div>
   </header>
 
-  <div class="cloudbar" id="cloudBar" hidden>
-    <div class="cb-out" id="cbOut">
-      <div class="cb-lead"><b>Keep your log in your own cloud</b><span>Sign in to save it to your account and sync it across devices.</span></div>
-      <div class="cb-btns">
-        <button class="pbtn" id="pb-google" hidden><span>Sign in with Google</span><small>Saves to Google Drive</small></button>
-        <button class="pbtn" id="pb-microsoft" hidden><span>Sign in with Microsoft</span><small>Saves to OneDrive</small></button>
-        <div class="pbtn apple" id="pb-apple" hidden><div id="apple-sign-in-button"></div><small>Saves to iCloud</small></div>
-      </div>
-      <p class="msg err" id="cbErr" role="alert" hidden></p>
-    </div>
-    <div class="cb-in" id="cbIn" hidden>
-      <span class="cb-dot" aria-hidden="true"></span>
-      <div class="cb-who"><b id="cbProv"></b><span id="cbUser"></span></div>
-      <span class="cb-status" id="cbStatus" role="status"></span>
-      <div class="cb-act">
-        <button class="btn" id="cbSync">Sync now</button>
-        <button class="btn primary" id="cbReconnect" hidden>Reconnect</button>
-        <button class="btn quiet" id="cbSignOut">Sign out</button>
-        <div id="apple-sign-out-button" hidden></div>
-      </div>
-    </div>
-  </div>
-
   <div id="exNote" class="example-note" hidden>
     <span><b>Example log.</b> These sample flights show what Contrail does. They disappear when you add your first real flight.</span>
   </div>
@@ -138,9 +115,31 @@
   </section>
 
   <section>
-    <div class="sec-h"><h2>Backups</h2></div>
+    <div class="sec-h"><h2>Sync and backups</h2></div>
+    <div class="cloudbar" id="cloudBar" hidden>
+      <div class="cb-out" id="cbOut">
+        <div class="cb-lead"><b>Keep your log in your own cloud</b><span>Sign in to save it to your account and sync it across devices.</span></div>
+        <div class="cb-btns">
+          <button class="pbtn" id="pb-google" hidden><span>Sign in with Google</span><small>Saves to Google Drive</small></button>
+          <button class="pbtn" id="pb-microsoft" hidden><span>Sign in with Microsoft</span><small>Saves to OneDrive</small></button>
+          <div class="pbtn apple" id="pb-apple" hidden><div id="apple-sign-in-button"></div><small>Saves to iCloud</small></div>
+        </div>
+        <p class="msg err" id="cbErr" role="alert" hidden></p>
+      </div>
+      <div class="cb-in" id="cbIn" hidden>
+        <span class="cb-dot" aria-hidden="true"></span>
+        <div class="cb-who"><b id="cbProv"></b><span id="cbUser"></span></div>
+        <span class="cb-status" id="cbStatus" role="status"></span>
+        <div class="cb-act">
+          <button class="btn" id="cbSync">Sync now</button>
+          <button class="btn primary" id="cbReconnect" hidden>Reconnect</button>
+          <button class="btn quiet" id="cbSignOut">Sign out</button>
+          <div id="apple-sign-out-button" hidden></div>
+        </div>
+      </div>
+    </div>
     <div class="panel opt">
-      <p class="hint">Signed in above, your log syncs on its own. A backup file is a copy you control: keep it anywhere, and restore it on any device, signed in or not.</p>
+      <p class="hint">A backup file is a copy you control: keep it anywhere, and restore it on any device, signed in or not.</p>
       <div class="row"><button class="btn primary" id="bkSave">Save backup file</button><span class="btn file">Restore from backup<input type="file" id="bkFile" accept=".json,application/json"></span></div>
       <p class="msg" id="bkMsg" role="status"></p>
     </div>
