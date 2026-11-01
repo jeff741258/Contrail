@@ -396,3 +396,15 @@ a.brand:hover{color:var(--accent)}
 .ap-all:hover{text-decoration:underline}
 #lsort{white-space:nowrap}
 @media (max-width:520px){.lsearch{flex-wrap:wrap}#lq{flex-basis:100%}}
+/* route chart airport panel: tappable rows, headers and airport codes */
+a.ap-h{color:inherit;text-decoration:none;border-radius:4px 4px 0 0}
+a.ap-h:hover .label,a.ap-h:focus-visible .label{color:var(--accent)}
+a.ap-h::after{content:"›";color:var(--muted);font-size:18px;line-height:1;margin-left:2px}
+.ap-col li[data-fid]{cursor:pointer;border-radius:4px;transition:background .15s}
+.ap-col li[data-fid]:hover{background:color-mix(in srgb,var(--accent) 10%,transparent)}
+.ap-col li a.c{color:var(--muted);text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ap-col li:hover a.c,.ap-col li a.c:focus-visible{color:var(--ink)}
+.ap-go{all:unset;cursor:pointer;font-family:var(--f-mono);font-weight:500;font-size:13px;color:var(--ink);border-bottom:1px dotted var(--muted);justify-self:start}
+.ap-go:hover,.ap-go:focus-visible{color:var(--accent);border-bottom-color:var(--accent)}
+.leg.flash{animation:legflash 2.4s ease-out}
+@keyframes legflash{0%,35%{background:color-mix(in srgb,var(--accent) 22%,transparent)}100%{background:transparent}}

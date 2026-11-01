@@ -374,9 +374,10 @@ function logPeriods(list){
 // Search matches every word typed against the airports, their cities, the airline (code and name),
 // the flight number and the aircraft. Filters narrow by date range, airport, airline and aircraft.
 // route: a pair of airports opened from Records (both directions unless oneway); not shown in the panel.
-const lf={q:"",from:"",to:"",ap:"",al:"",ac:"",route:null,oneway:false};
-function lfActive(){return !!(lf.q||lf.from||lf.to||lf.ap||lf.al||lf.ac||lf.route);}
-function lfCount(){return ["from","to","ap","al","ac","route"].filter(k=>lf[k]).length;}
+const lf={q:"",from:"",to:"",ap:"",al:"",ac:"",route:null,oneway:false,dirOut:"",dirIn:""};
+let logFocus=null; // a flight to jump to and highlight, set when opened from the route chart
+function lfActive(){return !!(lf.q||lf.from||lf.to||lf.ap||lf.al||lf.ac||lf.route||lf.dirOut||lf.dirIn);}
+function lfCount(){return ["from","to","ap","al","ac","route","dirOut","dirIn"].filter(k=>lf[k]).length;}
 function haystack(f){
   return [f.from,f.to,AP[f.from]&&AP[f.from].city,AP[f.to]&&AP[f.to].city,f.airline,AL[f.airline],
     f.airline&&f.num?f.airline+f.num:"",f.airline&&f.num?f.airline+" "+f.num:"",f.num,f.ac,f.date].filter(Boolean).join(" ").toLowerCase();
@@ -385,6 +386,8 @@ function lfMatch(f){
   if(lf.from&&f.date<lf.from)return false;
   if(lf.to&&f.date>lf.to)return false;
   if(lf.ap&&f.from!==lf.ap&&f.to!==lf.ap)return false;
+  if(lf.dirOut&&f.from!==lf.dirOut)return false;
+  if(lf.dirIn&&f.to!==lf.dirIn)return false;
   if(lf.al==="-"?(f.airline&&f.num):(lf.al&&f.airline!==lf.al))return false;
   if(lf.ac==="*"?!f.ac:(lf.ac&&(f.ac||"")!==lf.ac))return false;
   if(lf.route){const [a,b]=lf.route;if(!((f.from===a&&f.to===b)||(!lf.oneway&&f.from===b&&f.to===a)))return false;}
@@ -400,8 +403,9 @@ function fillFilterLists(list){
   const acs=[...new Set(list.map(f=>f.ac).filter(Boolean))].sort().map(a=>[a,a]);
   fill("lfAp",aps,"Any airport");fill("lfAl",(list.some(f=>!(f.airline&&f.num))?[["-","No flight number"]]:[]).concat(als),"Any airline");fill("lfAc",[["*","Any recorded aircraft"]].concat(acs),"Any aircraft");
   // a route opened from Records shows as a removable chip
-  $("lfRoute").hidden=!lf.route;
-  if(lf.route)$("lfRouteText").textContent=lf.route[0]+(lf.oneway?" → ":" ⇄ ")+lf.route[1];
+  // a route or direction opened from Records or the route chart shows as a removable chip
+  const chip=lf.route?"Route: "+lf.route[0]+(lf.oneway?" → ":" ⇄ ")+lf.route[1]:lf.dirOut?"Departing "+lf.dirOut:lf.dirIn?"Arriving at "+lf.dirIn:"";
+  $("lfRoute").hidden=!chip;$("lfRouteText").textContent=chip;
   const n=lfCount();$("lfCount").textContent=n?String(n):"";$("lfCount").hidden=!n;$("lfClear").hidden=!lfActive();
 }
 function renderLog(list){
@@ -417,6 +421,8 @@ function renderLog(list){
   T.innerHTML=tabs.map(t=>{const n=list.filter(t.test).length;
     return `<button type="button" role="tab" class="ltab" data-tab="${t.id}" aria-selected="${t.id===logTab}">${t.label}<span>${n}</span></button>`;}).join("");
   const shown=list.filter(tab.test);if(logOld)shown.reverse();
+  const focusId=logFocus;logFocus=null;
+  if(focusId){const i=shown.findIndex(f=>f.id===focusId);if(i>=0)logPage=Math.floor(i/PAGE);}
   const km=shown.reduce((s,f)=>s+distKm(f.from,f.to),0);
   const label=tab.id==="all"?"All time":tab.id==="ytd"?"This year so far":tab.label;
   const of=lfActive()?` of ${all.filter(tab.test).length}`:"";
@@ -435,7 +441,7 @@ function renderLog(list){
     const label=`${f.from} to ${f.to} on ${f.date}`;
     const phb=f.example||!PH?'<span></span>':`<button type="button" class="phb${ids.length?" has":""}" data-k="${esc(k)}" aria-expanded="${open}" aria-label="${ids.length?ids.length+(ids.length===1?" photo":" photos"):"Add photos"} for ${label}">`+
       (ids.length?`<img alt="" data-thumb="${ids[0]}"><span class="phn">${ids.length}</span>`:CAMERA)+`</button>`;
-    return `<div class="leg${open?" open":""}"><span class="d">${f.date}</span><span class="r"><b>${f.from} → ${f.to}${f.example?'<span class="tag">Example</span>':""}</b><span>${fl} · ${esc(a.city)} to ${esc(b.city)}</span>${editAc===f.id?`<form class="acform" data-id="${f.id}"><input class="acin" list="acList" maxlength="40" value="${esc(f.ac||"")}" placeholder="e.g. Boeing 737-800" aria-label="Aircraft for ${label}" autocomplete="off"><button class="btn" type="submit">Save</button><button class="btn quiet acx" type="button">Cancel</button></form>`:f.example?(f.ac?`<span class="acv">${esc(f.ac)}</span>`:""):`<button type="button" class="acb${f.ac?"":" add"}" data-id="${f.id}" aria-label="${f.ac?"Change aircraft, "+esc(f.ac):"Add aircraft"} for ${label}">${f.ac?esc(f.ac):"+ Aircraft"}</button>`}</span><span class="km">${fmtDist(distKm(f.from,f.to))} ${unit}</span>${phb}<button class="x" data-id="${f.id}" aria-label="Remove ${label}">×</button></div>`+
+    return `<div class="leg${open?" open":""}${f.id===focusId?" flash":""}" data-fid="${f.id}"><span class="d">${f.date}</span><span class="r"><b>${f.from} → ${f.to}${f.example?'<span class="tag">Example</span>':""}</b><span>${fl} · ${esc(a.city)} to ${esc(b.city)}</span>${editAc===f.id?`<form class="acform" data-id="${f.id}"><input class="acin" list="acList" maxlength="40" value="${esc(f.ac||"")}" placeholder="e.g. Boeing 737-800" aria-label="Aircraft for ${label}" autocomplete="off"><button class="btn" type="submit">Save</button><button class="btn quiet acx" type="button">Cancel</button></form>`:f.example?(f.ac?`<span class="acv">${esc(f.ac)}</span>`:""):`<button type="button" class="acb${f.ac?"":" add"}" data-id="${f.id}" aria-label="${f.ac?"Change aircraft, "+esc(f.ac):"Add aircraft"} for ${label}">${f.ac?esc(f.ac):"+ Aircraft"}</button>`}</span><span class="km">${fmtDist(distKm(f.from,f.to))} ${unit}</span>${phb}<button class="x" data-id="${f.id}" aria-label="Remove ${label}">×</button></div>`+
       (open?PH.drawer(esc(k),ids,label):"");}).join("");
   if(PH)PH.hydrate(L);
 }
@@ -602,12 +608,13 @@ function renderAirport(list,used){
   const ins=list.filter(f=>f.to===sel).sort((a,b)=>b.date.localeCompare(a.date));
   const kmOut=outs.reduce((s,f)=>s+distKm(f.from,f.to),0),kmIn=ins.reduce((s,f)=>s+distKm(f.from,f.to),0);
   const peers=new Set();outs.forEach(f=>peers.add(f.to));ins.forEach(f=>peers.add(f.from));
-  const row=(f,other)=>`<li><span class="d">${f.date}</span><b>${other}</b><span class="c">${esc(AP[other].city)}${f.airline?" · "+f.airline+" "+f.num:""}</span><span class="km">${fmtDist(distKm(f.from,f.to))}</span></li>`;
-  const col=(cls,title,arr,km,key)=>`<div class="ap-col"><div class="ap-h"><i class="sw ${cls}"></i><span class="label">${title}</span><span class="n">${arr.length}</span></div>`+
+  const row=(f,other)=>`<li data-fid="${f.id}"><span class="d">${f.date}</span><button type="button" class="ap-go" data-ap="${other}" aria-label="Show ${other} on the map">${other}</button><a class="c" href="#log" aria-label="Open ${f.from} to ${f.to} on ${f.date} in the flight log">${esc(AP[other].city)}${f.airline?" · "+f.airline+" "+f.num:""}</a><span class="km">${fmtDist(distKm(f.from,f.to))}</span></li>`;
+  const head=(cls,title,n,dir)=>n?`<a class="ap-h" href="#log" data-dir="${dir}" aria-label="Open all ${n} ${title.toLowerCase()} flights in the flight log"><i class="sw ${cls}"></i><span class="label">${title}</span><span class="n">${n}</span></a>`:`<div class="ap-h"><i class="sw ${cls}"></i><span class="label">${title}</span><span class="n">0</span></div>`;
+  const col=(cls,title,arr,km,key)=>`<div class="ap-col">${head(cls,title,arr.length,key)}`+
     (arr.length?`<ul>${arr.slice(0,8).map(f=>row(f,f[key])).join("")}</ul><div class="ap-sum">${arr.length>8?`${arr.length-8} more · `:""}${fmtDist(km)} ${unit} total</div>`:`<p class="ap-none">No ${title.toLowerCase()} flights logged.</p>`)+`</div>`;
   P.innerHTML=`<div class="ap-top"><div><span class="ap-code">${sel}</span><span class="ap-city">${esc(AP[sel].city)} · ${outs.length+ins.length} flights · ${peers.size} connected ${peers.size===1?"airport":"airports"}</span></div><button class="btn quiet" id="apClear">Show all routes</button></div>`+
     `<div class="ap-cols">${col("out","Outbound",outs,kmOut,"to")}${col("in","Inbound",ins,kmIn,"from")}</div>`+
-    (outs.length>8||ins.length>8?`<a class="ap-all" href="#log" data-ap="${sel}">See all ${outs.length+ins.length} ${sel} flights in the flight log ›</a>`:"");
+    `<a class="ap-all" href="#log" data-ap="${sel}">See all ${outs.length+ins.length} ${sel} flights in the flight log ›</a>`;
   P.hidden=false;
 }
 function setSel(c){sel=c||null;renderAirport(mapFilter(mapAll),new Set(model.used));paint();}
@@ -714,15 +721,17 @@ $("lq").addEventListener("input",e=>{clearTimeout(lqT);lqT=setTimeout(()=>{lf.q=
 [["lfFrom","from"],["lfTo","to"],["lfAp","ap"],["lfAl","al"],["lfAc","ac"]].forEach(([id,k])=>$(id).addEventListener("change",e=>{lf[k]=e.target.value;logPage=0;renderLog(logList);}));
 function clearFilters(){Object.keys(lf).forEach(k=>lf[k]="");lf.route=null;lf.oneway=false;["lq","lfFrom","lfTo"].forEach(id=>$(id).value="");logPage=0;renderLog(logList);$("lq").focus();}
 $("lfClear").addEventListener("click",clearFilters);
-$("lfRouteX").addEventListener("click",()=>{lf.route=null;lf.oneway=false;logPage=0;renderLog(logList);});
+$("lfRouteX").addEventListener("click",()=>{lf.route=null;lf.oneway=false;lf.dirOut=lf.dirIn="";logPage=0;renderLog(logList);});
 // Records → Flight log, filtered
 function openLogWith(filter,year){
   Object.keys(lf).forEach(k=>lf[k]="");lf.route=null;lf.oneway=false;
+  const focus=logFocus;
   Object.assign(lf,filter||{});
   $("lq").value=lf.q;$("lfFrom").value=lf.from;$("lfTo").value=lf.to;
   logTab=year||"all";logPage=0;
-  if(lfCount()-(lf.route?1:0)>0){$("lfPanel").hidden=false;$("lfToggle").setAttribute("aria-expanded","true");}
+  if(lfCount()-(lf.route||lf.dirOut||lf.dirIn?1:0)>0){$("lfPanel").hidden=false;$("lfToggle").setAttribute("aria-expanded","true");}
   renderLog(logList);
+  if(focus)setTimeout(()=>{const el=$("log").querySelector('.leg[data-fid="'+focus+'"]');if(el)el.scrollIntoView({block:"center",behavior:"smooth"});},80);
 }
 $("records").addEventListener("click",e=>{const a=e.target.closest("a.recbtn[data-filter]");if(!a)return;openLogWith(JSON.parse(a.dataset.filter));});
 $("years").addEventListener("click",e=>{const a=e.target.closest("a.yr");if(!a)return;openLogWith(null,a.dataset.year);});
@@ -787,7 +796,14 @@ $("mapTabs").addEventListener("click",e=>{const b=e.target.closest(".ltab");if(!
   mapPeriod=b.dataset.period;try{localStorage.setItem(MKEY,mapPeriod);}catch(_){}
   drawMap(mapAll);const s=$("mapTabs").querySelector('[aria-selected="true"]');if(s&&s.focus)s.focus();});
 $("apPanel").addEventListener("click",e=>{if(e.target.closest("#apClear"))setSel(null);
-  const all=e.target.closest(".ap-all");if(all&&typeof openLogWith==="function")openLogWith({ap:all.dataset.ap});});
+  const all=e.target.closest(".ap-all");if(all){openLogWith({ap:all.dataset.ap});return;}
+  const go=e.target.closest(".ap-go");if(go){setSel(go.dataset.ap);$("apPick").value=go.dataset.ap;return;}
+  // a header opens every flight in that direction: outbound = from here (to any), inbound = to here
+  const h=e.target.closest("a.ap-h");if(h){openLogWith(h.dataset.dir==="to"?{dirOut:sel}:{dirIn:sel});return;}
+  const li=e.target.closest("li[data-fid]");
+  if(li){const f=logList.find(x=>x.id===li.dataset.fid);if(!f)return;
+    logFocus=f.id;openLogWith({route:[f.from,f.to],oneway:true});
+    if(!e.target.closest("a"))location.hash="log";}});
 
 // theme + resize redraws
 window.addEventListener("resize",schedule);
