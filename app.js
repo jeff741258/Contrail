@@ -473,16 +473,20 @@ function clampView(W,H){
   const half=H/2/view.s;view.cMy=half>=MYMAX?0:Math.max(-MYMAX+half,Math.min(MYMAX-half,view.cMy));
   view.cLon=((view.cLon+180)%360+360)%360-180;
 }
-function fit(){
+// fit(code): with an airport code, frames just that airport and every route to or from it
+function fit(code){
   const {W,H}=dims();
-  if(!model.arcs.length){view={s:W/75,cLon:-100,cMy:my(40)};clampView(W,H);return;}
+  const arcs=code?model.arcs.filter(r=>r.a===code||r.b===code):model.arcs;
+  if(code&&!arcs.length)return fit();
+  if(!arcs.length){view={s:W/75,cLon:-100,cMy:my(40)};clampView(W,H);return;}
   // centre on the routes; longitudes are unwrapped around the widest stretch with no routes
-  const lons=[];model.arcs.forEach(r=>r.pts.forEach(([x])=>lons.push(((x%360)+360)%360)));lons.sort((a,b)=>a-b);
+  const lons=[];arcs.forEach(r=>r.pts.forEach(([x])=>lons.push(((x%360)+360)%360)));lons.sort((a,b)=>a-b);
   let cut=180,gap=-1;for(let i=0;i<lons.length;i++){const a=lons[i],b=i<lons.length-1?lons[i+1]:lons[0]+360;if(b-a>gap){gap=b-a;cut=(a+b)/2;}}
   let l0=1e9,l1=-1e9,m0=1e9,m1=-1e9;
-  model.arcs.forEach(r=>r.pts.forEach(([x,y])=>{let v=((x-cut)%360+360)%360+cut;l0=Math.min(l0,v);l1=Math.max(l1,v);const m=my(y);m0=Math.min(m0,m);m1=Math.max(m1,m);}));
+  arcs.forEach(r=>r.pts.forEach(([x,y])=>{let v=((x-cut)%360+360)%360+cut;l0=Math.min(l0,v);l1=Math.max(l1,v);const m=my(y);m0=Math.min(m0,m);m1=Math.max(m1,m);}));
   const [a,b]=sLim(W,H);
-  view={s:Math.max(a,Math.min(b*0.3,W/((l1-l0)*1.2+10),H/((m1-m0)*1.35+10))),cLon:(l0+l1)/2,cMy:(m0+m1)/2};
+  const pad=code?3:10; // a little margin so labels and end dots stay inside
+  view={s:Math.max(a,Math.min(b*(code?0.6:0.3),W/((l1-l0)*1.25+pad),H/((m1-m0)*1.4+pad))),cLon:(l0+l1)/2,cMy:(m0+m1)/2};
   clampView(W,H);
 }
 // Route chart period: All time, YTD, the last 12 months or the last 5 years. The airport picker and details follow it.
@@ -521,7 +525,8 @@ function drawMap(list){
       for(let i=1;i<pts.length;i++){while(pts[i][0]-pts[i-1][0]>180)pts[i][0]-=360;while(pts[i][0]-pts[i-1][0]<-180)pts[i][0]+=360;}
       let b0=1e9,b1=-1e9;pts.forEach(([x])=>{b0=Math.min(b0,x);b1=Math.max(b1,x);});return {a,b,c,pts,b0,b1};}).sort((p,q)=>p.c-q.c);
     model={arcs,used:[...used],dir,sig};
-    fit();
+    if(sel&&!used.has(sel))sel=null;
+    fit(sel);
   }else{model.used=[...used];model.dir=dir;}
   if(sel&&!used.has(sel))sel=null;
   $("mapBounds").textContent=used.size?`${model.arcs.length} routes · ${used.size} airports`:"";
@@ -617,7 +622,8 @@ function renderAirport(list,used){
     `<a class="ap-all" href="#log" data-ap="${sel}">See all ${outs.length+ins.length} ${sel} flights in the flight log ›</a>`;
   P.hidden=false;
 }
-function setSel(c){sel=c||null;renderAirport(mapFilter(mapAll),new Set(model.used));paint();}
+// picking an airport zooms to it and all its routes; "Show all routes" zooms back out to everything
+function setSel(c){sel=c||null;fit(sel);renderAirport(mapFilter(mapAll),new Set(model.used));paint();}
 
 // ---------- import UI ----------
 const SAMPLE=`From: Alaska Airlines <no-reply@alaskaair.com>
@@ -784,11 +790,11 @@ function hitAt(x,y){let best=null,bd=18;mapPts.forEach(p=>{const d=Math.hypot(p.
   cv.addEventListener("keydown",e=>{const {W,H}=dims(),st=60/view.s;let used=true;
     if(e.key==="ArrowLeft")view.cLon-=st;else if(e.key==="ArrowRight")view.cLon+=st;else if(e.key==="ArrowUp")view.cMy+=st;else if(e.key==="ArrowDown")view.cMy-=st;
     else if(e.key==="+"||e.key==="=")return zoomAt(W/2,H/2,1.5),e.preventDefault();else if(e.key==="-"||e.key==="_")return zoomAt(W/2,H/2,1/1.5),e.preventDefault();
-    else if(e.key==="0"){fit();}else used=false;
+    else if(e.key==="0"){fit(sel);}else used=false;
     if(used){e.preventDefault();clampView(W,H);schedule();}});
   $("zIn").addEventListener("click",()=>{const {W,H}=dims();zoomAt(W/2,H/2,1.6);});
   $("zOut").addEventListener("click",()=>{const {W,H}=dims();zoomAt(W/2,H/2,1/1.6);});
-  $("zFit").addEventListener("click",()=>{fit();schedule();});
+  $("zFit").addEventListener("click",()=>{fit(sel);schedule();});
   $("zWorld").addEventListener("click",()=>{const {W,H}=dims();view.s=0;view.cMy=my(20);clampView(W,H);schedule();});
 })();
 $("apPick").addEventListener("change",e=>setSel(e.target.value));
