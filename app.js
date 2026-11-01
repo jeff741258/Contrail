@@ -465,7 +465,7 @@ function imy(v){return Math.atan(Math.sinh(v/D))*D;}
 const MYMAX=my(MAXLAT);
 const FREQ=[{min:1,label:"1×"},{min:2,label:"2×"},{min:3,label:"3–4×"},{min:5,label:"5–9×"},{min:10,label:"10+×"}];
 function bucket(c){let b=0;FREQ.forEach((f,i)=>{if(c>=f.min)b=i;});return b;}
-let model={arcs:[],used:[],dir:{},sig:null},view=null,sel=null,mapPts=[],W0=0,raf=0;
+let model={arcs:[],used:[],dir:{},sig:null},view=null,sel=null,mapPts=[],W0=0,raf=0,paintDpr=0; // paintDpr: a sharper one-off render for the export
 function dims(){const W=$("map").parentElement.clientWidth||700;return {W,H:Math.round(Math.min(460,Math.max(260,W*0.58)))};}
 function sLim(W,H){return [Math.max(W/360,H/(2*MYMAX)),W/360*48];}
 function clampView(W,H){
@@ -533,7 +533,7 @@ function paint(){
   const cv=$("map"),ctx=cv.getContext("2d");const {W,H}=dims();
   if(!view)fit();
   if(W0&&W!==W0)view.s*=W/W0;W0=W;clampView(W,H);
-  const dpr=window.devicePixelRatio||1;
+  const dpr=paintDpr||window.devicePixelRatio||1;
   if(cv.width!==Math.round(W*dpr)||cv.height!==Math.round(H*dpr)){cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);cv.style.height=H+"px";}
   ctx.setTransform(dpr,0,0,dpr,0,0);
   const C={bg:cssv("--surface"),grid:cssv("--grid"),ink:cssv("--ink"),muted:cssv("--muted"),acc:cssv("--accent"),sig:cssv("--signal"),land:cssv("--land"),coast:cssv("--coast")};
@@ -929,6 +929,111 @@ window.ContrailApp={getDoc,setDoc,keyOf,parseEmails,reviewCandidates,dropNumberl
     flight:f.airline&&f.num?f.airline+f.num:"",from:f.from,from_city:AP[f.from]?AP[f.from].city:"",to:f.to,to_city:AP[f.to]?AP[f.to].city:"",
     aircraft:f.ac||"",distance_km:Math.round(distKm(f.from,f.to)),distance_mi:Math.round(distKm(f.from,f.to)*0.621371)})),
   exportPhotos:()=>photos.map(p=>{const f=real().find(x=>keyOf(x)===p.k);return f?{id:p.id,date:f.date,from:f.from,to:f.to,added:p.added}:null;}).filter(Boolean).sort((a,b)=>a.date.localeCompare(b.date)||a.added-b.added)};
+
+// ---------- Map tab: export the current map with an airport summary as a PNG ----------
+// Uses exactly what's on screen: the period, the selected airport, zoom and position, and the theme.
+function exportMapImage(){
+  const src=$("map"),list=mapFilter(mapAll);
+  if(!list.length){mapExSay("There are no flights on the map to export yet.",true);return;}
+  const C={bg:cssv("--bg"),surf:cssv("--surface"),line:cssv("--line"),ink:cssv("--ink"),muted:cssv("--muted"),acc:cssv("--accent"),sig:cssv("--signal")};
+  const FD=cssv("--f-display"),FB=cssv("--f-body"),FM=cssv("--f-mono");
+  const per=(MAP_PERIODS.find(x=>x.id===mapPeriod)||MAP_PERIODS[0]).label;
+  const dates=list.map(f=>f.date).sort(),span=fmtDate(dates[0])+" – "+fmtDate(dates[dates.length-1]);
+  const km=list.reduce((t,f)=>t+distKm(f.from,f.to),0);
+  // summary numbers and table rows
+  let title,stats,head,rows,tTitle;
+  if(sel){
+    const outs=list.filter(f=>f.from===sel),ins=list.filter(f=>f.to===sel),peer={};
+    outs.forEach(f=>{(peer[f.to]=peer[f.to]||{o:0,i:0}).o++;});ins.forEach(f=>{(peer[f.from]=peer[f.from]||{o:0,i:0}).i++;});
+    const kmA=[...outs,...ins].reduce((t,f)=>t+distKm(f.from,f.to),0);
+    title=sel+" · "+AP[sel].city;
+    stats=[["Flights",outs.length+ins.length],["Outbound",outs.length],["Inbound",ins.length],["Connected airports",Object.keys(peer).length],["Distance",fmtDist(kmA)+" "+unit]];
+    tTitle="Routes from "+sel;head=["Airport","City","Out","In","Each way ("+unit+")"];
+    rows=Object.entries(peer).sort((a,b)=>(b[1].o+b[1].i)-(a[1].o+a[1].i)||a[0].localeCompare(b[0]))
+      .map(([c,v])=>[c,AP[c].city,String(v.o),String(v.i),fmtDist(distKm(sel,c))]);
+  }else{
+    const n={},peers={},routes=new Set(),ccs=new Set();
+    list.forEach(f=>{[f.from,f.to].forEach(c=>{n[c]=(n[c]||0)+1;ccs.add(AP[c].cc);});
+      (peers[f.from]=peers[f.from]||new Set()).add(f.to);(peers[f.to]=peers[f.to]||new Set()).add(f.from);
+      routes.add([f.from,f.to].sort().join("-"));});
+    title="Route map";
+    stats=[["Flights",list.length],["Distance",fmtDist(km)+" "+unit],["Airports",Object.keys(n).length],["Routes",routes.size],["Countries",ccs.size]];
+    tTitle="Airports";head=["Airport","City","Country","Flights","Connected"];
+    rows=Object.entries(n).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]))
+      .map(([c,v])=>[c,AP[c].city,AP[c].cc,String(v),String(peers[c].size)]);
+  }
+  const MAXR=24,more=rows.length-MAXR;rows=rows.slice(0,MAXR);
+  // layout, in CSS pixels at 2x. The map is full width; the title and stats sit on top of it.
+  const W=1200,PAD=48,k=2,cssW=src.clientWidth||W,cssH=src.clientHeight||Math.round(W*.58);
+  // the title sits in a band of open map above the routes and the stats in one below, so neither covers a route
+  const TOP=170,BOT=150,drawH=Math.round(W*cssH/cssW),mapH=TOP+drawH+BOT,RH=40;
+  const twoCol=rows.length>12,perCol=twoCol?Math.ceil(rows.length/2):rows.length;
+  const table=!sel; // with an airport selected the image is just the map with its stats; the full view adds the airport list
+  const H=mapH+(table?PAD+44+10+perCol*RH+(more>0?40:0):0)+70;
+  // re-render the map sharply at the export size (same view), then put the screen version back
+  paintDpr=W*k/cssW;let mapImg;
+  try{paint();mapImg=document.createElement("canvas");mapImg.width=src.width;mapImg.height=src.height;mapImg.getContext("2d").drawImage(src,0,0);}
+  finally{paintDpr=0;paint();}
+  const cv=document.createElement("canvas");cv.width=W*k;cv.height=H*k;
+  const x=cv.getContext("2d");x.scale(k,k);
+  x.fillStyle=C.bg;x.fillRect(0,0,W,H);
+  // the map; if the image is taller than the on-screen map, it's centred and the edges filled with the map colour
+  x.fillStyle=C.surf;x.fillRect(0,0,W,mapH);
+  x.drawImage(mapImg,0,TOP,W,drawH);
+  const fade=(y0,y1,a0,a1)=>{const g=x.createLinearGradient(0,y0,0,y1);g.addColorStop(0,rgba(C.surf,a0));g.addColorStop(1,rgba(C.surf,a1));x.fillStyle=g;x.fillRect(0,Math.min(y0,y1),W,Math.abs(y1-y0));};
+  fade(TOP,TOP+70,1,0);fade(TOP+drawH-70,TOP+drawH,0,1);
+  x.textBaseline="alphabetic";
+  // title, top left
+  x.fillStyle=C.ink;x.font="800 22px "+FD;x.fillText("CONTRAIL",PAD,PAD+18);
+  const bw=x.measureText("CONTRAIL").width;x.fillStyle=C.acc;x.fillText(".",PAD+bw,PAD+18);
+  x.fillStyle=C.ink;x.font="800 56px "+FD;x.fillText(title.toUpperCase(),PAD,PAD+80,W-PAD*2);
+  x.fillStyle=C.muted;x.font="14px "+FM;x.fillText(per.toUpperCase()+"  ·  "+span,PAD,PAD+110);
+  if(sel){x.font="13px "+FM;let lx=W-PAD;[[C.sig,"Inbound"],[C.acc,"Outbound"]].forEach(([c,t])=>{const tw=x.measureText(t).width;lx-=tw;x.fillStyle=C.muted;x.fillText(t,lx,PAD+18);lx-=28;x.fillStyle=c;x.fillRect(lx,PAD+11,20,4);lx-=24;});}
+  // stats along the bottom of the map
+  const sw=(W-PAD*2)/stats.length,sy=mapH-PAD-62;
+  stats.forEach(([l,v],i)=>{const sx=PAD+i*sw;
+    x.fillStyle=C.muted;x.font="600 12px "+FM;x.fillText(l.toUpperCase(),sx,sy+14);
+    x.fillStyle=C.ink;x.font="700 42px "+FD;x.fillText(typeof v==="number"?v.toLocaleString():v,sx,sy+60,sw-32);});
+  x.strokeStyle=C.line;x.lineWidth=1;x.beginPath();x.moveTo(0,mapH+.5);x.lineTo(W,mapH+.5);x.stroke();
+  let y=mapH+PAD;
+  // airport table
+  if(table){
+  x.fillStyle=C.ink;x.font="800 26px "+FD;x.fillText(tTitle.toUpperCase(),PAD,y+24);y+=44;
+  const mapW=W-PAD*2;
+  const colW=twoCol?(mapW-32)/2:mapW;
+  const cols=w=>[0,.12,.62,.76,1].map(f=>f*w); // x positions: code, city, then three right-aligned numbers end at .74/.88/1
+  const drawTable=(rs,ox)=>{
+    const cx=cols(colW);
+    x.font="600 11px "+FM;x.fillStyle=C.muted;
+    const right=[cx[2]+colW*.12,cx[3]+colW*.12,colW];
+    x.fillText(head[0].toUpperCase(),ox,y);x.fillText(head[1].toUpperCase(),ox+cx[1],y);
+    x.textAlign="right";head.slice(2).forEach((h,i)=>x.fillText(h.toUpperCase(),ox+right[i],y));x.textAlign="start";
+    x.strokeStyle=C.ink;x.lineWidth=2;x.beginPath();x.moveTo(ox,y+10);x.lineTo(ox+colW,y+10);x.stroke();
+    rs.forEach((r,i)=>{const ry=y+10+RH*(i+1)-14;
+      x.fillStyle=C.ink;x.font="500 15px "+FM;x.fillText(r[0],ox,ry);
+      x.fillStyle=C.muted;x.font="15px "+FB;x.fillText(r[1],ox+cx[1],ry,cx[2]-cx[1]+colW*.12-90);
+      x.textAlign="right";x.fillStyle=C.ink;x.font="15px "+FM;r.slice(2).forEach((v,j)=>x.fillText(v,ox+right[j],ry));x.textAlign="start";
+      x.strokeStyle=C.line;x.lineWidth=1;x.beginPath();x.moveTo(ox,ry+14);x.lineTo(ox+colW,ry+14);x.stroke();});
+  };
+  drawTable(rows.slice(0,perCol),PAD);
+  if(twoCol)drawTable(rows.slice(perCol),PAD+colW+32);
+  y+=10+perCol*RH;
+  if(more>0){x.fillStyle=C.muted;x.font="14px "+FB;x.fillText("+ "+more+" more "+(more===1?"airport":"airports"),PAD,y+28);y+=40;}
+  }
+  x.fillStyle=C.muted;x.font="12px "+FM;x.fillText("Made with Contrail · "+fmtDate(localIso()),PAD,H-PAD+14);
+  cv.toBlob(b=>{
+    if(!b){mapExSay("Couldn't create the image. Try again.",true);return;}
+    const a=document.createElement("a");a.href=URL.createObjectURL(b);
+    a.download="contrail-map-"+(sel?sel.toLowerCase()+"-":"")+mapPeriod+"-"+localIso()+".png";
+    document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1500);
+    mapExSay("Downloaded "+a.download+".");
+  },"image/png");
+}
+function rgba(c,a){const m=/^#?([0-9a-f]{6})$/i.exec(c.trim());if(!m)return c;const n=parseInt(m[1],16);return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`;}
+function rr(x,X,Y,w,h,r){x.beginPath();x.moveTo(X+r,Y);x.arcTo(X+w,Y,X+w,Y+h,r);x.arcTo(X+w,Y+h,X,Y+h,r);x.arcTo(X,Y+h,X,Y,r);x.arcTo(X,Y,X+w,Y,r);x.closePath();}
+function localIso(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+function mapExSay(t,err){const m=$("mapExMsg");m.textContent=t;m.classList.toggle("err",!!err);}
+$("mapExport").addEventListener("click",()=>{try{exportMapImage();}catch(e){mapExSay("The export didn't work ("+((e&&e.message)||"error")+").",true);}});
 
 load();render();
 })();

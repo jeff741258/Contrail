@@ -408,3 +408,6 @@ a.ap-h::after{content:"›";color:var(--muted);font-size:18px;line-height:1;marg
 .ap-go:hover,.ap-go:focus-visible{color:var(--accent);border-bottom-color:var(--accent)}
 .leg.flash{animation:legflash 2.4s ease-out}
 @keyframes legflash{0%,35%{background:color-mix(in srgb,var(--accent) 22%,transparent)}100%{background:transparent}}
+.map-export{display:flex;flex-direction:column;align-items:flex-start;gap:10px}
+.map-export p{margin:0}
+#mapExMsg:empty{display:none}

@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="styles.css?v=20261031z">
+<link rel="stylesheet" href="styles.css?v=20261031zc">
 </head>
 <body>
 <div class="shell">
@@ -65,7 +65,14 @@
       </section>
     </div>
 
-    <div class="view" data-view="map" hidden><div id="routeMapTab"></div></div>
+    <div class="view" data-view="map" hidden>
+      <div id="routeMapTab"></div>
+      <section class="map-export">
+        <div><h2>Export map</h2><p class="hint">Saves the map exactly as shown (period, airport, zoom) as an image, with its stats. With no airport selected, a list of your airports is added underneath.</p></div>
+        <button class="btn" id="mapExport" type="button">Export map image</button>
+        <p class="msg" id="mapExMsg" role="status"></p>
+      </section>
+    </div>
 
     <div class="view" data-view="add" hidden>
       <section>
@@ -246,20 +253,20 @@
   </nav>
 </div>
 
-<script src="airports.js?v=20261031z"></script>
-<script src="land.js?v=20261031z"></script>
-<script src="app.js?v=20261031z"></script>
-<script src="config.js?v=20261031z"></script>
-<script src="common.js?v=20261031z"></script>
-<script src="msauth.js?v=20261031z"></script>
-<script src="google.js?v=20261031z"></script>
-<script src="microsoft.js?v=20261031z"></script>
-<script src="apple.js?v=20261031z"></script>
-<script src="sync.js?v=20261031z"></script>
-<script src="mail.js?v=20261031z"></script>
-<script src="photos.js?v=20261031z"></script>
-<script src="privacy.js?v=20261031z"></script>
-<script src="space.js?v=20261031z"></script>
+<script src="airports.js?v=20261031zc"></script>
+<script src="land.js?v=20261031zc"></script>
+<script src="app.js?v=20261031zc"></script>
+<script src="config.js?v=20261031zc"></script>
+<script src="common.js?v=20261031zc"></script>
+<script src="msauth.js?v=20261031zc"></script>
+<script src="google.js?v=20261031zc"></script>
+<script src="microsoft.js?v=20261031zc"></script>
+<script src="apple.js?v=20261031zc"></script>
+<script src="sync.js?v=20261031zc"></script>
+<script src="mail.js?v=20261031zc"></script>
+<script src="photos.js?v=20261031zc"></script>
+<script src="privacy.js?v=20261031zc"></script>
+<script src="space.js?v=20261031zc"></script>
 <script>
 // Tabs: Overview, Map, Flight log, Add flights, Account. The open tab is in the address (#log etc.) so it can be bookmarked.
 (function(){
