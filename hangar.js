@@ -34,13 +34,21 @@
     return '<span class="hg-als">' + top.map(a => '<span class="hg-alc" title="' + esc(a.name) + ' (' + a.code + ')"><b>' + esc(a.name) + '</b><i>×' + a.n + '</i></span>').join("") +
       (more > 0 ? '<span class="hg-alm">+' + more + ' more</span>' : "") + '</span>';
   }
+  // a registration with at least one photo of it
+  function regProof(k){ return App.regsFor(k).some(r => App.photosFor(k + "|" + r.reg).length); }
   function build(){
     const today = new Date(), iso = today.getFullYear() + "-" + String(today.getMonth() + 1).padStart(2, "0") + "-" + String(today.getDate()).padStart(2, "0");
     const flown = App.flights().filter(f => f.ac && f.date <= iso); // only flights you've actually taken
     const by = {};
+    // A flight counts as caught when an inbox email named its aircraft, or when you've saved a registration
+    // with a photo for that aircraft and airline (proof you were on, or saw, that very plane).
+    const regOk = {};
+    const byReg = (ac, code) => { const k = "ac:" + ac + "|" + code; return k in regOk ? regOk[k] : (regOk[k] = regProof(k)); };
     flown.forEach(f => {
-      const t = by[f.ac] || (by[f.ac] = { caught: [], seen: [] });
-      (f.acv ? t.caught : t.seen).push(f);
+      const t = by[f.ac] || (by[f.ac] = { caught: [], seen: [], how: new Set() });
+      const reg = !f.acv && byReg(f.ac, f.airline || "");
+      if(f.acv) t.how.add("email"); if(reg) t.how.add("registration");
+      (f.acv || reg ? t.caught : t.seen).push(f);
     });
     const names = [...new Set(App.acList().concat(Object.keys(by)))];
     names.sort((a, b) => {
@@ -48,12 +56,12 @@
       return (ma < 0 ? 99 : ma) - (mb < 0 ? 99 : mb) || natural(a, b);
     });
     return names.map((name, i) => {
-      const t = by[name] || { caught: [], seen: [] };
+      const t = by[name] || { caught: [], seen: [], how: new Set() };
       const list = t.caught.concat(t.seen);
       const all = t.caught.concat(t.seen).sort((a, b) => a.date.localeCompare(b.date));
       const first = t.caught.slice().sort((a, b) => a.date.localeCompare(b.date))[0];
       return { no: i + 1, name, maker: maker(name), tier: tierOf(name), state: t.caught.length ? "caught" : t.seen.length ? "seen" : "missing",
-        caught: t.caught.length, flights: all.length, first, airlines: tally(all), list };
+        caught: t.caught.length, flights: all.length, first, airlines: tally(all), list, how: [...t.how] };
     });
   }
 
@@ -66,7 +74,7 @@
         '<span class="hg-sub">First caught ' + fmt(f.date) + ' · ' + f.from + ' → ' + f.to + (f.airline ? " · " + esc(f.airline + " " + f.num) : "") + '</span>' + airlines(c);
     }else if(c.state === "seen"){
       body = '<span class="hg-st">Seen · ' + c.flights + (c.flights === 1 ? " flight" : " flights") + '</span>' +
-        '<span class="hg-sub">Added by hand. Import an email that names it to catch it.</span>' + airlines(c);
+        '<span class="hg-sub">Added by hand. Catch it with an email that names it, or a registration with a photo.</span>' + airlines(c);
     }else{
       body = '<span class="hg-st">Not caught yet</span>';
     }
@@ -85,9 +93,10 @@
     c.list.forEach(f => { const k = f.airline || ""; (g[k] = g[k] || []).push(f); });
     return Object.entries(g).sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0])).map(([code, fl]) => {
       fl.sort((a, b) => a.date.localeCompare(b.date));
-      const caught = fl.some(f => f.acv), name = code ? App.airlineName(code) : "Airline not known";
+      const name = code ? App.airlineName(code) : "Airline not known";
       const k = "ac:" + c.name + "|" + code, ids = App.photosFor(k), label = c.name + (code ? " · " + name : "");
       const regs = App.regsFor(k);
+      const byEmail = fl.some(f => f.acv), byReg = regProof(k), caught = byEmail || byReg;
       // cover: newest general photo, or else the newest photo of one of its registrations
       const regPics = regs.flatMap(r => App.photosFor(k + "|" + r.reg));
       const coverIds = ids.length ? ids : regPics, coverK = ids.length ? k : "";
@@ -96,6 +105,7 @@
         '<button type="button" class="hg-cover' + (coverIds.length ? " has" : "") + '" data-k="' + esc(coverK || k) + '"' + (coverK ? "" : ' data-reg="1"') + (coverIds.length ? ' aria-label="Open photos of ' + esc(label) + '"' : ' tabindex="-1" aria-hidden="true"') + '>' +
           (coverIds.length ? '<img alt="" data-thumb="' + coverIds[coverIds.length - 1] + '">' : '<span class="hg-pic">' + PLANE + '</span>') +
           '<span class="hg-badge">' + (caught ? "Caught" : "Seen") + '</span>' +
+          (caught ? '<span class="hg-how">' + (byEmail ? "✓ Email" : "") + (byEmail && byReg ? " · " : "") + (byReg ? "✓ Registration" : "") + '</span>' : "") +
           (ids.length ? '<span class="hg-pcount">' + ids.length + (ids.length === 1 ? " photo" : " photos") + '</span>' : "") +
         '</button>' +
         '<div class="hg-albody"><a class="hg-allink" href="#log" data-al="' + esc(code || "-") + '" aria-label="Show your ' + esc(c.name) + ' flights with ' + esc(name) + ' in the flight log">' +
@@ -131,7 +141,9 @@
   async function shareCard(rk, btn){
     const [type, code, reg] = rk.slice(3).split("|");
     const c = build().find(x => x.name === type); if(!c) return;
-    const fl = c.list.filter(f => (f.airline || "") === code && f.acv).sort((a, b) => a.date.localeCompare(b.date));
+    const mine = c.list.filter(f => (f.airline || "") === code), byEmail = mine.some(f => f.acv);
+    // first caught: the first emailed flight, or (caught by registration) the first flight with this airline
+    const fl = (byEmail ? mine.filter(f => f.acv) : regProof("ac:" + type + "|" + code) ? mine : []).sort((a, b) => a.date.localeCompare(b.date));
     if(!fl.length) return;
     const ids = App.photosFor(rk), blob = ids.length && PH() ? await PH().getFull(ids[ids.length - 1]) : null;
     const msg = btn.closest(".hg-reg").querySelector(".phmsg");
@@ -169,9 +181,9 @@
       x.fillStyle = "#C9D3E6"; x.font = "600 40px " + FB; x.fillText(airline || "Airline not known", 92, 958, W - 184);
       x.fillStyle = "#8E9BB5"; x.font = "30px " + FB;
       x.fillText("First caught " + fmt(first.date) + "  ·  " + first.from + " → " + first.to + (first.airline ? "  ·  " + first.airline + " " + first.num : ""), 92, 1012, W - 184);
-      x.fillText(fl.length + (fl.length === 1 ? " flight" : " flights") + " on this type with " + (airline || "this airline"), 92, 1056, W - 184);
+      x.fillText(mine.length + (mine.length === 1 ? " flight" : " flights") + " on this type with " + (airline || "this airline"), 92, 1056, W - 184);
       // confirmation badge
-      const badge = "✓  CONFIRMED BY EMAIL"; x.font = "700 26px " + FM; const bw = x.measureText(badge).width + 48;
+      const badge = "✓  CONFIRMED BY " + (byEmail ? "EMAIL" : "REGISTRATION"); x.font = "700 26px " + FM; const bw = x.measureText(badge).width + 48;
       rr(92, 1098, bw, 58, 29); x.fillStyle = col; x.fill(); x.fillStyle = "#0B1220"; x.fillText(badge, 116, 1137);
       // footer
       x.fillStyle = "#fff"; x.font = "800 40px " + FD; x.fillText("CONTRAIL", 92, 1240);
