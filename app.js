@@ -277,15 +277,18 @@ function fit(){
   view={s:Math.max(a,Math.min(b*0.3,W/((l1-l0)*1.2+10),H/((m1-m0)*1.35+10))),cLon:(l0+l1)/2,cMy:(m0+m1)/2};
   clampView(W,H);
 }
-// Route chart period: All time, YTD, or the last 12 months. The airport picker and details follow it.
+// Route chart period: All time, YTD, the last 12 months or the last 5 years. The airport picker and details follow it.
 const MKEY="contrail.mapPeriod";
 let mapPeriod="all",mapAll=[];
 try{mapPeriod=localStorage.getItem(MKEY)||"all";}catch(e){}
 const MAP_PERIODS=[
   {id:"all",label:"All time",test:()=>true},
   {id:"ytd",label:"YTD",test:(f,t)=>f.date.slice(0,4)===t.slice(0,4)&&f.date<=t},
-  {id:"1y",label:"1 year",test:(f,t,y)=>f.date>y&&f.date<=t}
+  {id:"1y",label:"1 year",test:(f,t)=>f.date>daysAgo(365)&&f.date<=t},
+  {id:"5y",label:"5 years",test:(f,t)=>f.date>yearsAgoIso(5)&&f.date<=t}
 ];
+function daysAgo(n){return new Date(Date.now()-n*864e5).toISOString().slice(0,10);}
+function yearsAgoIso(n){const d=new Date();d.setFullYear(d.getFullYear()-n);return d.toISOString().slice(0,10);}
 function mapFilter(list){
   const today=new Date().toISOString().slice(0,10);
   const yearAgo=new Date(Date.now()-365*864e5).toISOString().slice(0,10);
