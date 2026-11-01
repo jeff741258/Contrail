@@ -1,132 +1,201 @@
-// Privacy section: "Delete all data".
-// Deletes the log, photos, sign-ins and settings from this browser. If the user is signed in and
-// chooses to, it also empties their cloud copy (log and photo files) and leaves a tiny marker with
-// the time of the wipe, so their other devices clear their own copies on their next sync instead of
-// uploading the old data again. Signing out of Google also revokes Contrail's access.
+// Hangar (#hangar): collect aircraft types like trading cards.
+// A type is CAUGHT only when an email imported from Gmail or Outlook names it on a flight you've
+// already taken. Types you typed in yourself, or pasted, show as SEEN until an email confirms them.
 (function(){
   "use strict";
   const App = window.ContrailApp;
   const $ = id => document.getElementById(id);
-  const plural = (n, w) => n.toLocaleString() + " " + w + (n === 1 ? "" : "s");
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const TIERS = [
+    { id: "legendary", label: "Legendary", rx: /A380|747/ },
+    { id: "epic", label: "Epic", rx: /A350|787|777|A340/ },
+    { id: "rare", label: "Rare", rx: /A330|767|757|A220|A318/ },
+    { id: "uncommon", label: "Uncommon", rx: /Embraer|CRJ|Dash|ATR|717/ },
+    { id: "common", label: "Common", rx: /./ }
+  ];
+  const tierOf = name => TIERS.find(t => t.rx.test(name));
+  const maker = name => /^De Havilland/.test(name) ? "De Havilland" : name.split(" ")[0];
+  const MAKERS = ["Airbus", "Boeing", "Embraer", "Bombardier", "De Havilland", "ATR"];
+  const natural = (a, b) => a.localeCompare(b, undefined, { numeric: true });
+  let filter = "all";
+  try{ filter = localStorage.getItem("contrail.hangarFilter") || "all"; }catch(_){}
 
-  function say(text, isErr){ const m = $("wipeMsg"); m.textContent = text; m.classList.toggle("err", !!isErr); }
+  const PLANE = '<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M32 4c2.2 0 3.4 2.6 3.4 6v13.5l22.6 13v5.2l-22.6-6.9v12.4l6.4 5v4.3L32 53.3l-9.8 3.2v-4.3l6.4-5V34.8L6 41.7v-5.2l22.6-13V10c0-3.4 1.2-6 3.4-6Z"/></svg>';
+  const fmt = iso => { const [y, m, d] = iso.split("-"); return new Date(+y, +m - 1, +d).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }); };
 
-  function openConfirm(){
-    const S = window.ContrailSync && window.ContrailSync.state;
-    const P = window.ContrailProviders || {};
-    const label = S && S.active ? P[S.active].label : "";
-    const connected = !!(window.ContrailSync && window.ContrailSync.provider());
-    const c = App.counts();
-    $("wipeWhat").textContent = "This deletes " + plural(c.flights, "flight") + " and " + plural(c.photos, "photo") +
-      " from this browser, along with your sign-ins and settings. It can't be undone.";
-    $("wipeCloudRow").hidden = !label;
-    $("wipeCloud").checked = connected;
-    $("wipeCloud").disabled = !connected;
-    $("wipeCloudLabel").textContent = connected
-      ? "Also delete my copy in " + label + ", which clears my other devices the next time they open Contrail"
-      : "Your " + label + " session expired. Reconnect in Sync and backups first to delete your cloud copy too.";
-    $("wipeType").value = "";
-    $("wipeGo").disabled = true;
-    $("wipeForm").hidden = false;
-    $("wipeOpen").hidden = true;
-    say("");
-    $("wipeType").focus();
+  // airlines you've flown this type with, most flights first: [{code, name, n}]
+  function tally(list){
+    const n = {}; list.forEach(f => { if(f.airline) n[f.airline] = (n[f.airline] || 0) + 1; });
+    return Object.entries(n).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([code, k]) => ({ code, name: App.airlineName(code), n: k }));
   }
-  function closeConfirm(){
-    $("wipeForm").hidden = true;
-    $("wipeOpen").hidden = false;
-    $("wipeOpen").focus();
+  function airlines(c){
+    if(!c.airlines.length) return "";
+    const top = c.airlines.slice(0, 3), more = c.airlines.length - top.length;
+    return '<span class="hg-als">' + top.map(a => '<span class="hg-alc" title="' + esc(a.name) + ' (' + a.code + ')"><b>' + esc(a.name) + '</b><i>×' + a.n + '</i></span>').join("") +
+      (more > 0 ? '<span class="hg-alm">+' + more + ' more</span>' : "") + '</span>';
+  }
+  function build(){
+    const today = new Date(), iso = today.getFullYear() + "-" + String(today.getMonth() + 1).padStart(2, "0") + "-" + String(today.getDate()).padStart(2, "0");
+    const flown = App.flights().filter(f => f.ac && f.date <= iso); // only flights you've actually taken
+    const by = {};
+    flown.forEach(f => {
+      const t = by[f.ac] || (by[f.ac] = { caught: [], seen: [] });
+      (f.acv ? t.caught : t.seen).push(f);
+    });
+    const names = [...new Set(App.acList().concat(Object.keys(by)))];
+    names.sort((a, b) => {
+      const ma = MAKERS.indexOf(maker(a)), mb = MAKERS.indexOf(maker(b));
+      return (ma < 0 ? 99 : ma) - (mb < 0 ? 99 : mb) || natural(a, b);
+    });
+    return names.map((name, i) => {
+      const t = by[name] || { caught: [], seen: [] };
+      const list = t.caught.concat(t.seen);
+      const all = t.caught.concat(t.seen).sort((a, b) => a.date.localeCompare(b.date));
+      const first = t.caught.slice().sort((a, b) => a.date.localeCompare(b.date))[0];
+      return { no: i + 1, name, maker: maker(name), tier: tierOf(name), state: t.caught.length ? "caught" : t.seen.length ? "seen" : "missing",
+        caught: t.caught.length, flights: all.length, first, airlines: tally(all), list };
+    });
   }
 
-  async function run(){
-    $("wipeGo").disabled = true; $("wipeCancel").disabled = true;
-    const Sync = window.ContrailSync, S = Sync && Sync.state;
-    const P = window.ContrailProviders || {};
-    const p = S && S.active ? P[S.active] : null;
-    const cloud = !!(p && $("wipeCloud").checked && Sync.provider() && p.wipe);
-    const label = p ? p.label : "";
-    const wipedAt = Date.now();
-    say("Deleting…");
-    try{
-      if(Sync) await Sync.idle().catch(()=>{});
-      if(cloud){
-        try{
-          await p.wipe({ app: "Contrail", format: 2, updatedAt: wipedAt, wipedAt, flights: [], photos: [], removed: [] });
-        }catch(e){
-          say("Couldn't delete your " + label + " copy (" + ((e && e.message) || "error") + "). Nothing was deleted; try again.", true);
-          $("wipeGo").disabled = false; $("wipeCancel").disabled = false;
-          return;
-        }
-      }
-      if(S && S.active) Sync.signOut(); // signing out of Google also revokes Contrail's access
-      await App.wipeLocal(true, cloud ? wipedAt : 0);
-      $("wipeForm").hidden = true;
-      $("wipeOpen").hidden = false;
-      say("Deleted. All Contrail data is gone from this browser" +
-        (cloud ? " and from your " + label + ". Your other devices will clear their copies the next time they open Contrail." : ".") +
-        (p && p.usesOwnButtons ? " Use Apple's Sign out button above to finish signing out of iCloud." : ""));
-    }finally{
-      $("wipeCancel").disabled = false;
+  function card(c){
+    const no = "#" + String(c.no).padStart(3, "0");
+    let body;
+    if(c.state === "caught"){
+      const f = c.first;
+      body = '<span class="hg-st">Caught · ' + c.flights + (c.flights === 1 ? " flight" : " flights") + '</span>' +
+        '<span class="hg-sub">First caught ' + fmt(f.date) + ' · ' + f.from + ' → ' + f.to + (f.airline ? " · " + esc(f.airline + " " + f.num) : "") + '</span>' + airlines(c);
+    }else if(c.state === "seen"){
+      body = '<span class="hg-st">Seen · ' + c.flights + (c.flights === 1 ? " flight" : " flights") + '</span>' +
+        '<span class="hg-sub">Added by hand. Import an email that names it to catch it.</span>' + airlines(c);
+    }else{
+      body = '<span class="hg-st">Not caught yet</span>';
     }
+    const tag = c.state === "missing" ? "div" : "a";
+    return '<' + tag + ' class="hg-card ' + c.state + ' t-' + c.tier.id + '"' + (tag === "a" ? ' href="#log" data-ac="' + esc(c.name) + '" aria-label="' + esc(c.name) + ': see airlines and photos"' : "") + '>' +
+      '<span class="hg-top"><span class="hg-no">' + no + '</span><span class="hg-tier">' + c.tier.label + '</span></span>' +
+      '<span class="hg-pic">' + PLANE + '</span>' +
+      '<b class="hg-name">' + esc(c.name) + '</b>' + body + '</' + tag + '>';
   }
 
-  // ---------- export ----------
-  const today = () => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
-  function download(name, blob){
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob); a.download = name;
-    document.body.appendChild(a); a.click();
-    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+  // ---------- one aircraft: a square per airline you've flown it with, each with its own photos ----------
+  let detail = null; // aircraft name being shown, or null for the whole collection
+  const PH = () => window.ContrailPhotos;
+  function airlineCards(c){
+    const g = {};
+    c.list.forEach(f => { const k = f.airline || ""; (g[k] = g[k] || []).push(f); });
+    return Object.entries(g).sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0])).map(([code, fl]) => {
+      fl.sort((a, b) => a.date.localeCompare(b.date));
+      const caught = fl.some(f => f.acv), name = code ? App.airlineName(code) : "Airline not known";
+      const k = "ac:" + c.name + "|" + code, ids = App.photosFor(k), label = c.name + (code ? " · " + name : "");
+      const regs = App.regsFor(k);
+      // cover: newest general photo, or else the newest photo of one of its registrations
+      const regPics = regs.flatMap(r => App.photosFor(k + "|" + r.reg));
+      const coverIds = ids.length ? ids : regPics, coverK = ids.length ? k : "";
+      const first = fl[0], last = fl[fl.length - 1];
+      return '<div class="hg-alcard ' + (caught ? "caught" : "seen") + '">' +
+        '<button type="button" class="hg-cover' + (coverIds.length ? " has" : "") + '" data-k="' + esc(coverK || k) + '"' + (coverK ? "" : ' data-reg="1"') + (coverIds.length ? ' aria-label="Open photos of ' + esc(label) + '"' : ' tabindex="-1" aria-hidden="true"') + '>' +
+          (coverIds.length ? '<img alt="" data-thumb="' + coverIds[coverIds.length - 1] + '">' : '<span class="hg-pic">' + PLANE + '</span>') +
+          '<span class="hg-badge">' + (caught ? "Caught" : "Seen") + '</span>' +
+          (ids.length ? '<span class="hg-pcount">' + ids.length + (ids.length === 1 ? " photo" : " photos") + '</span>' : "") +
+        '</button>' +
+        '<div class="hg-albody"><b class="hg-alname">' + esc(name) + '</b>' +
+          '<span class="hg-alsub">' + (code ? code + " · " : "") + fl.length + (fl.length === 1 ? " flight" : " flights") + '</span>' +
+          '<span class="hg-alsub">' + (fl.length === 1 ? fmt(first.date) + " · " + first.from + " → " + first.to : "First " + fmt(first.date) + " · last " + fmt(last.date)) + '</span>' +
+          regBlock(k, regs, label) +
+          (PH() ? PH().drawer(k, ids, label) : "") +
+        '</div></div>';
+    }).join("");
   }
-  function exSay(t, err){ const m = $("exMsg"); m.textContent = t; m.classList.toggle("err", !!err); }
-  const csvCell = v => { v = String(v == null ? "" : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+  // registrations (tail numbers) for one aircraft + airline, each with a photo slot beside it
+  function regBlock(k, regs, label){
+    const rows = regs.map(r => {
+      const rk = k + "|" + r.reg, pics = App.photosFor(rk);
+      return '<div class="legph hg-reg" data-k="' + esc(rk) + '">' +
+        '<span class="hg-regpics">' + pics.map((id, i) => '<button type="button" class="pth" data-photo="' + id + '" aria-label="Open photo ' + (i + 1) + ' of ' + r.reg + '"><img alt="" data-thumb="' + id + '"></button>').join("") +
+          '<label class="hg-regadd" title="Add a photo of ' + esc(r.reg) + '">' + (pics.length ? "+" : '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 8h3l2-2.5h6L17 8h3v11H4Z"/><circle cx="12" cy="13" r="3.5"/></svg>') +
+          '<input type="file" accept="image/*" multiple data-k="' + esc(rk) + '" aria-label="Add a photo of ' + esc(r.reg) + '"></label></span>' +
+        '<b class="hg-regno">' + esc(r.reg) + '</b>' +
+        '<button type="button" class="hg-regx" data-rid="' + r.id + '" aria-label="Remove ' + esc(r.reg) + '">×</button>' +
+        '<p class="phmsg msg" role="status"></p></div>';
+    }).join("");
+    return '<div class="hg-regs"><span class="hg-regh">Registrations</span>' + rows +
+      '<form class="hg-regform" data-k="' + esc(k) + '"><input type="text" maxlength="12" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="e.g. C-FIVM" aria-label="Add a registration for ' + esc(label) + '"><button class="btn" type="submit">Add</button></form>' +
+      '<p class="hg-regmsg msg" role="status"></p></div>';
+  }
+  function renderDetail(c){
+    $("hgList").hidden = true; $("hgDetail").hidden = false;
+    $("hgDetail").innerHTML = '<button type="button" class="btn quiet hg-back" id="hgBack">‹ All aircraft</button>' +
+      '<div class="hg-dhead t-' + c.tier.id + ' ' + c.state + '"><span class="hg-pic">' + PLANE + '</span><div>' +
+        '<span class="hg-top"><span class="hg-no">#' + String(c.no).padStart(3, "0") + '</span><span class="hg-tier">' + c.tier.label + '</span></span>' +
+        '<h3>' + esc(c.name) + '</h3><span class="hg-dsub">' + (c.state === "caught" ? "Caught" : "Seen") + ' · ' + c.flights + (c.flights === 1 ? " flight" : " flights") +
+        ' · ' + c.airlines.length + (c.airlines.length === 1 ? " airline" : " airlines") + '</span></div></div>' +
+      '<div class="hg-alcards">' + airlineCards(c) + '</div>';
+    if(PH()) PH().hydrate($("hgDetail"));
+  }
 
-  $("exCsv").addEventListener("click", () => {
-    const rows = App.exportRows();
-    if(!rows.length){ exSay("Your log is empty, so there's nothing to export yet.", true); return; }
-    const cols = Object.keys(rows[0]);
-    const csv = "\ufeff" + [cols.join(",")].concat(rows.map(r => cols.map(c => csvCell(r[c])).join(","))).join("\r\n");
-    download("contrail-flights-" + today() + ".csv", new Blob([csv], { type: "text/csv;charset=utf-8" }));
-    exSay("Downloaded " + plural(rows.length, "flight") + ".");
+  function render(){
+    if(detail){
+      const c = build().find(x => x.name === detail && x.state !== "missing");
+      if(c){ renderDetail(c); return; }
+      detail = null;
+    }
+    $("hgList").hidden = false; $("hgDetail").hidden = true;
+    const dex = build(), caught = dex.filter(c => c.state === "caught").length, seen = dex.filter(c => c.state === "seen").length;
+    $("hgCount").innerHTML = caught + '<small> / ' + dex.length + '</small>';
+    $("hgBar").style.width = (caught / dex.length * 100).toFixed(1) + "%";
+    $("hgLead").textContent = caught ? (caught === 1 ? "1 type caught" : caught + " types caught") + (seen ? " · " + seen + " seen, waiting for an email" : "") :
+      seen ? seen + " seen, waiting for an email to catch them" : "Import your Gmail or Outlook to start catching aircraft.";
+    const counts = { all: dex.length, caught, seen, missing: dex.length - caught - seen };
+    $("hgFilters").innerHTML = [["all", "All"], ["caught", "Caught"], ["seen", "Seen"], ["missing", "Missing"]].map(([id, l]) =>
+      '<button type="button" role="tab" class="ltab" data-f="' + id + '" aria-selected="' + (filter === id) + '">' + l + '<span>' + counts[id] + '</span></button>').join("");
+    const shown = dex.filter(c => filter === "all" || c.state === filter);
+    const groups = [...new Set(shown.map(c => c.maker))];
+    $("hgGrid").innerHTML = shown.length ? groups.map(m => {
+      const inG = dex.filter(c => c.maker === m), got = inG.filter(c => c.state === "caught").length;
+      return '<div class="hg-group"><div class="hg-gh"><h3>' + esc(m) + '</h3><span>' + got + ' / ' + inG.length + ' caught</span></div>' +
+        '<div class="hg-cards">' + shown.filter(c => c.maker === m).map(card).join("") + '</div></div>';
+    }).join("") : '<p class="hg-empty">' + (filter === "caught" ? "Nothing caught yet. Import emails from Gmail or Outlook under Add flights." : filter === "seen" ? "No aircraft waiting for confirmation." : "You've caught them all!") + '</p>';
+  }
+
+  $("hgFilters").addEventListener("click", e => {
+    const b = e.target.closest("[data-f]"); if(!b) return;
+    filter = b.dataset.f; try{ localStorage.setItem("contrail.hangarFilter", filter); }catch(_){}
+    render();
   });
-
-  $("exJson").addEventListener("click", () => {
-    const doc = App.getDoc();
-    if(!doc.flights.length){ exSay("Your log is empty, so there's nothing to export yet.", true); return; }
-    download("contrail-data-" + today() + ".json", new Blob([JSON.stringify(doc, null, 2)], { type: "application/json" }));
-    exSay("Downloaded your full data file: " + plural(doc.flights.length, "flight") + " and " + plural((doc.photos || []).length, "photo") + " listed.");
+  $("hgGrid").addEventListener("click", e => {
+    const a = e.target.closest("a.hg-card"); if(!a) return;
+    e.preventDefault(); detail = a.dataset.ac; render(); scrollTo(0, 0);
+    const b = $("hgBack"); if(b) b.focus({ preventScroll: true });
   });
-
-  $("exPhotos").addEventListener("click", async () => {
-    const list = App.exportPhotos();
-    if(!list.length){ exSay("You haven't added any photos yet.", true); return; }
-    const btn = $("exPhotos"); btn.disabled = true;
-    try{
-      exSay("Preparing…");
-      await window.ContrailUtil.loadScript("https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js");
-      const zip = new JSZip(), per = {};
-      let added = 0, missing = 0;
-      for(let i = 0; i < list.length; i++){
-        const p = list[i];
-        exSay("Adding photo " + (i + 1) + " of " + list.length + "…");
-        const blob = await window.ContrailPhotos.getFull(p.id);
-        if(!blob){ missing++; continue; }
-        const base = p.base || p.date + "_" + p.from + "-" + p.to; // Hangar photos are named after the aircraft and airline
-        per[base] = (per[base] || 0) + 1;
-        zip.file(base + "_" + per[base] + ".jpg", blob, { binary: true, compression: "STORE" });
-        added++;
-      }
-      if(!added){ exSay("Couldn't get any photos. If they were added on another device, sign in under Sync and backups first.", true); return; }
-      exSay("Creating the zip file…");
-      download("contrail-photos-" + today() + ".zip", await zip.generateAsync({ type: "blob" }));
-      exSay("Downloaded " + plural(added, "photo") + "." + (missing ? " " + plural(missing, "photo") + " couldn't be fetched; sign in under Sync and backups to include photos added on other devices." : ""));
-    }catch(e){
-      exSay("The photo export didn't work (" + ((e && e.message) || "error") + "). Check your connection and try again.", true);
-    }finally{ btn.disabled = false; }
+  $("hgDetail").addEventListener("click", e => {
+    if(e.target.closest("#hgBack")){ const was = detail; detail = null; render();
+      const card = $("hgGrid").querySelector('a.hg-card[data-ac="' + CSS.escape(was) + '"]'); if(card){ card.scrollIntoView({ block: "center" }); card.focus({ preventScroll: true }); } return; }
+    const x = e.target.closest(".hg-regx");
+    if(x){ // two taps: "×" then "Remove?"
+      if(x.classList.contains("sure")){ App.removeReg(x.dataset.rid); return; }
+      x.classList.add("sure"); x.textContent = "Remove?"; setTimeout(() => { if(x.isConnected){ x.classList.remove("sure"); x.textContent = "×"; } }, 3000); return;
+    }
+    const cov = e.target.closest(".hg-cover.has");
+    if(cov && cov.dataset.reg && PH()){ // cover is a registration photo: show all of this airline's registration photos
+      const card = cov.closest(".hg-alcard"), ids = [...card.querySelectorAll(".hg-reg .pth")].map(b => b.dataset.photo);
+      PH().open(ids, ids.length - 1, card.querySelector(".hg-alname").textContent + " · " + detail); return;
+    }
+    if(cov && PH()){ const ids = App.photosFor(cov.dataset.k); PH().open(ids, ids.length - 1, cov.closest(".hg-alcard").querySelector(".hg-alname").textContent + " · " + detail); }
   });
-
-  $("wipeOpen").addEventListener("click", openConfirm);
-  $("wipeCancel").addEventListener("click", closeConfirm);
-  $("wipeType").addEventListener("input", e => { $("wipeGo").disabled = e.target.value.trim().toUpperCase() !== "DELETE"; });
-  $("wipeForm").addEventListener("submit", e => { e.preventDefault(); if(!$("wipeGo").disabled) run(); });
+  const visible = () => location.hash === "#hangar";
+  $("hgDetail").addEventListener("submit", e => {
+    const f = e.target.closest(".hg-regform"); if(!f) return;
+    e.preventDefault();
+    const inp = f.querySelector("input"), v = inp.value.trim().toUpperCase().replace(/\s+/g, "-"), msg = f.parentNode.querySelector(".hg-regmsg");
+    if(!/^[A-Z0-9][A-Z0-9-]{1,11}$/.test(v)){ msg.textContent = "Use letters, numbers and dashes, like C-FIVM or N12345."; msg.classList.add("err"); return; }
+    if(!App.addReg(f.dataset.k, v)){ msg.textContent = v + " is already here."; msg.classList.add("err"); return; }
+    // the page redraws; put the cursor back in this card's box for the next one
+    const sel = '.hg-regform[data-k="' + CSS.escape(f.dataset.k) + '"] input', n = $("hgDetail").querySelector(sel); if(n) n.focus();
+  });
+  let keep = false; // set by open(): show that aircraft instead of the collection
+  addEventListener("hashchange", () => { if(visible()){ if(!keep) detail = null; keep = false; render(); } });
+  window.ContrailHangar = { refresh(){ if(visible()) render(); },
+    // name: an aircraft type to open straight to its airline page; "" for the whole collection
+    open(name){ detail = name || null; if(visible()){ render(); scrollTo(0, 0); } else { keep = true; location.hash = "hangar"; } } };
+  if(visible()) render();
 })();

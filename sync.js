@@ -38,16 +38,23 @@
     const photos = [...pics.values()]
       .filter(p => (liveFlights.has(p.k) || p.k.startsWith("ac:")) && (!deleted.has("p:" + p.id) || (p.added || 0) > deleted.get("p:" + p.id)))
       .sort((x, y) => (x.added || 0) - (y.added || 0));
+    // Hangar registrations: kept unless deleted after they were added
+    const regMap = new Map();
+    [a, b].forEach(doc => (doc && Array.isArray(doc.regs) ? doc.regs : []).forEach(r => {
+      if(r && typeof r.id === "string" && !regMap.has(r.id)) regMap.set(r.id, r);
+    }));
+    const regs = [...regMap.values()].filter(r => !deleted.has("r:" + r.id) || (r.added || 0) > deleted.get("r:" + r.id)).sort((x, y) => (x.added || 0) - (y.added || 0));
     const removed = [...deleted.entries()].map(([k, at]) => ({ k, at })).sort((x, y) => x.at - y.at).slice(-1000);
     const wipedAt = Math.max((a && a.wipedAt) || 0, (b && b.wipedAt) || 0);
-    return { app: "Contrail", format: 2, updatedAt: Date.now(), wipedAt, flights, photos, removed };
+    return { app: "Contrail", format: 2, updatedAt: Date.now(), wipedAt, flights, photos, regs, removed };
   }
   function fingerprint(doc){
     if(!doc) return "";
     const f = (doc.flights || []).map(x => keyOf(x) + "@" + (x.added || 0) + "/" + (x.edited || 0) + ":" + (x.aircraft || "") + (x.aircraftConfirmed ? "!" : "")).sort().join(",");
     const r = (doc.removed || []).map(x => x.k + "@" + x.at).sort().join(",");
     const p = (doc.photos || []).map(x => x.id + ">" + x.k).sort().join(",");
-    return f + "#" + r + "#" + p;
+    const g = (doc.regs || []).map(x => x.id + "=" + x.reg).sort().join(",");
+    return f + "#" + r + "#" + p + "#" + g;
   }
 
   // ---------- state ----------
