@@ -585,3 +585,9 @@ a.al-tile:hover{transform:translateY(-2px)}
 .pp-n{font:10px var(--f-mono)}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .pp-stamp{filter:brightness(1.6) saturate(.9)}}
 :root[data-theme="dark"] .pp-stamp{filter:brightness(1.6) saturate(.9)}
+/* Passport: runway-layout stamps */
+.pp-page{--ppbg:color-mix(in srgb,var(--signal) 5%,var(--surface));background:var(--ppbg)}
+.pp-stamp.rw{aspect-ratio:auto}
+.pp-stamp.rw .pp-in{border:0;outline:0;padding:4px 6px;height:auto}
+.pp-rw{width:100%;max-width:130px;aspect-ratio:1;display:block;margin-bottom:2px}
+.pp-stamp.rw .pp-code{font-size:30px}

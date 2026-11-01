@@ -59,15 +59,42 @@
   // ---------- Passport ----------
   const INKS = ["#C2410C", "#1D4ED8", "#047857", "#7E22CE", "#B91C1C", "#0E7490", "#A16207", "#BE185D"];
   const hash = s => [...s].reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 7);
+  // Runway layouts (runways.js, ~100 KB) load the first time the Passport opens.
+  let RW = null, rwLoading = false;
+  function runways(){
+    if(RW) return RW;
+    if(window.CONTRAIL_RUNWAYS){ RW = {}; window.CONTRAIL_RUNWAYS.split(";").forEach(r => { const [c, d] = r.split(":"); RW[c] = d.split(",").map(Number); }); return RW; }
+    if(!rwLoading){
+      rwLoading = true;
+      const v = (document.querySelector('script[src*="collections.js"]') || {}).src || "", q = v.includes("?") ? v.slice(v.indexOf("?")) : "";
+      window.ContrailUtil.loadScript("runways.js" + q).then(() => window.ContrailHangar.refresh()).catch(() => {});
+    }
+    return null;
+  }
+  // The stamp's shape is the airport's runway layout, north up: outlined runways with dashed centre lines.
+  function runwaySVG(code){
+    const R = runways(), d = R && R[code]; if(!d || !d.length) return "";
+    const segs = []; for(let i = 0; i + 4 < d.length; i += 5) segs.push(d.slice(i, i + 5));
+    let ext = 1; segs.forEach(([x1, y1, x2, y2]) => { ext = Math.max(ext, Math.abs(x1), Math.abs(x2), Math.abs(y1), Math.abs(y2)); });
+    const sc = 40 / ext, P = (x, y) => (50 + x * sc).toFixed(1) + " " + (50 - y * sc).toFixed(1);
+    const sw = s => Math.max(7, Math.min(12, s[4] * sc * 2.2)).toFixed(1);
+    const line = (s, w, style) => '<path d="M' + P(s[0], s[1]) + "L" + P(s[2], s[3]) + '" stroke-width="' + w + '" style="' + style + '"/>';
+    return '<svg class="pp-rw" viewBox="0 0 100 100" aria-hidden="true" fill="none" stroke-linecap="butt">' +
+      segs.map(s => line(s, sw(s), "stroke:var(--ink)")).join("") +                       // outline of every runway…
+      segs.map(s => line(s, (sw(s) - 3).toFixed(1), "stroke:var(--ppbg)")).join("") +       // …hollowed out, so crossings merge
+      segs.map(s => line(s, 0.9, "stroke:var(--ink);stroke-dasharray:3 2.4")).join("") +    // centre lines
+      "</svg>";
+  }
   function passport(el){
     const list = flown(), ap = {};
     list.forEach(f => [f.from, f.to].forEach(c => { const a = ap[c] || (ap[c] = { code: c, n: 0, first: f.date, last: f.date }); a.n++; a.last = f.date; }));
     let stamps = Object.values(ap);
     stamps.sort(ppSort === "most" ? (a, b) => b.n - a.n || a.code.localeCompare(b.code) : ppSort === "az" ? (a, b) => a.code.localeCompare(b.code) : (a, b) => a.first.localeCompare(b.first) || a.code.localeCompare(b.code));
     const stamp = (s, i) => {
-      const h = hash(s.code), ink = INKS[Math.abs(h) % INKS.length], rot = ((Math.abs(h) % 13) - 6) * 1.1, shape = ["round", "rect", "oval"][Math.abs(h >> 3) % 3];
-      return '<a class="pp-stamp ' + shape + '" href="#log" data-ap="' + s.code + '" style="--ink:' + ink + ';--rot:' + rot.toFixed(1) + 'deg" aria-label="' + s.code + ', ' + esc(App.airportCity(s.code)) + ': ' + plural(s.n, "flight") + ', first ' + fmt(s.first) + '">' +
-        '<span class="pp-in"><span class="pp-no">No. ' + String(i + 1).padStart(3, "0") + '</span><b class="pp-code">' + s.code + '</b>' +
+      const h = hash(s.code), ink = INKS[Math.abs(h) % INKS.length], rot = ((Math.abs(h) % 13) - 6) * 1.1, rw = runwaySVG(s.code);
+      // airports without runway data keep a round stamp
+      return '<a class="pp-stamp ' + (rw ? "rw" : "round") + '" href="#log" data-ap="' + s.code + '" style="--ink:' + ink + ';--rot:' + rot.toFixed(1) + 'deg" aria-label="' + s.code + ', ' + esc(App.airportCity(s.code)) + ': ' + plural(s.n, "flight") + ', first ' + fmt(s.first) + '">' +
+        '<span class="pp-in">' + rw + '<span class="pp-no">No. ' + String(i + 1).padStart(3, "0") + '</span><b class="pp-code">' + s.code + '</b>' +
         '<span class="pp-city">' + esc(App.airportCity(s.code)) + '</span><span class="pp-date">' + fmt(s.first).toUpperCase() + '</span>' +
         '<span class="pp-n">' + plural(s.n, "flight") + '</span></span></a>';
     };
