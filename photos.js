@@ -252,15 +252,16 @@
   }
 
   // ---------- events ----------
-  $("log").addEventListener("click", e => {
-    const t = e.target.closest(".pth");
+  // photo drawers live in the flight log and on the Hangar's airline cards
+  document.addEventListener("click", e => {
+    const t = e.target.closest(".legph .pth");
     if(!t) return;
     const box = t.closest(".legph");
     const ids = [...box.querySelectorAll(".pth")].map(b => b.dataset.photo);
     openViewer(ids, ids.indexOf(t.dataset.photo), App.flightLabel(box.dataset.k));
   });
-  $("log").addEventListener("change", e => {
-    const inp = e.target.closest('input[type="file"][data-k]');
+  document.addEventListener("change", e => {
+    const inp = e.target.closest('.legph input[type="file"][data-k]');
     if(!inp || !inp.files.length) return;
     const files = [...inp.files]; inp.value = "";
     addFiles(inp.dataset.k, files);
@@ -273,7 +274,7 @@
     await new Promise(resolve => { const r = indexedDB.deleteDatabase("contrail"); r.onsuccess = r.onerror = r.onblocked = () => resolve(); });
   }
 
-  window.ContrailPhotos = { drawer, hydrate, pump, prune, deletePhoto, wipe,
+  window.ContrailPhotos = { drawer, hydrate, pump, prune, deletePhoto, wipe, open: openViewer,
     // Full-size photo for exports: from this device, or downloaded from the cloud if needed.
     getFull: id => getFull(id).catch(() => null) };
   App.refreshLog(); // draw photo buttons now that photos are available

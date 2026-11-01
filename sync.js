@@ -36,7 +36,7 @@
     }));
     const liveFlights = new Set(flights.map(keyOf));
     const photos = [...pics.values()]
-      .filter(p => liveFlights.has(p.k) && (!deleted.has("p:" + p.id) || (p.added || 0) > deleted.get("p:" + p.id)))
+      .filter(p => (liveFlights.has(p.k) || p.k.startsWith("ac:")) && (!deleted.has("p:" + p.id) || (p.added || 0) > deleted.get("p:" + p.id)))
       .sort((x, y) => (x.added || 0) - (y.added || 0));
     const removed = [...deleted.entries()].map(([k, at]) => ({ k, at })).sort((x, y) => x.at - y.at).slice(-1000);
     const wipedAt = Math.max((a && a.wipedAt) || 0, (b && b.wipedAt) || 0);

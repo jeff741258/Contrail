@@ -23,6 +23,17 @@
   const PLANE = '<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M32 4c2.2 0 3.4 2.6 3.4 6v13.5l22.6 13v5.2l-22.6-6.9v12.4l6.4 5v4.3L32 53.3l-9.8 3.2v-4.3l6.4-5V34.8L6 41.7v-5.2l22.6-13V10c0-3.4 1.2-6 3.4-6Z"/></svg>';
   const fmt = iso => { const [y, m, d] = iso.split("-"); return new Date(+y, +m - 1, +d).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }); };
 
+  // airlines you've flown this type with, most flights first: [{code, name, n}]
+  function tally(list){
+    const n = {}; list.forEach(f => { if(f.airline) n[f.airline] = (n[f.airline] || 0) + 1; });
+    return Object.entries(n).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([code, k]) => ({ code, name: App.airlineName(code), n: k }));
+  }
+  function airlines(c){
+    if(!c.airlines.length) return "";
+    const top = c.airlines.slice(0, 3), more = c.airlines.length - top.length;
+    return '<span class="hg-als">' + top.map(a => '<span class="hg-alc" title="' + esc(a.name) + ' (' + a.code + ')"><b>' + esc(a.name) + '</b><i>×' + a.n + '</i></span>').join("") +
+      (more > 0 ? '<span class="hg-alm">+' + more + ' more</span>' : "") + '</span>';
+  }
   function build(){
     const today = new Date(), iso = today.getFullYear() + "-" + String(today.getMonth() + 1).padStart(2, "0") + "-" + String(today.getDate()).padStart(2, "0");
     const flown = App.flights().filter(f => f.ac && f.date <= iso); // only flights you've actually taken
@@ -38,10 +49,11 @@
     });
     return names.map((name, i) => {
       const t = by[name] || { caught: [], seen: [] };
+      const list = t.caught.concat(t.seen);
       const all = t.caught.concat(t.seen).sort((a, b) => a.date.localeCompare(b.date));
       const first = t.caught.slice().sort((a, b) => a.date.localeCompare(b.date))[0];
       return { no: i + 1, name, maker: maker(name), tier: tierOf(name), state: t.caught.length ? "caught" : t.seen.length ? "seen" : "missing",
-        caught: t.caught.length, flights: all.length, first, airlines: [...new Set(all.map(f => f.airline).filter(Boolean))] };
+        caught: t.caught.length, flights: all.length, first, airlines: tally(all), list };
     });
   }
 
@@ -51,22 +63,62 @@
     if(c.state === "caught"){
       const f = c.first;
       body = '<span class="hg-st">Caught · ' + c.flights + (c.flights === 1 ? " flight" : " flights") + '</span>' +
-        '<span class="hg-sub">First caught ' + fmt(f.date) + ' · ' + f.from + ' → ' + f.to + (f.airline ? " · " + esc(f.airline + " " + f.num) : "") + '</span>' +
-        (c.airlines.length ? '<span class="hg-al">' + c.airlines.slice(0, 6).map(esc).join(" · ") + '</span>' : "");
+        '<span class="hg-sub">First caught ' + fmt(f.date) + ' · ' + f.from + ' → ' + f.to + (f.airline ? " · " + esc(f.airline + " " + f.num) : "") + '</span>' + airlines(c);
     }else if(c.state === "seen"){
       body = '<span class="hg-st">Seen · ' + c.flights + (c.flights === 1 ? " flight" : " flights") + '</span>' +
-        '<span class="hg-sub">Added by hand. Import an email that names it to catch it.</span>';
+        '<span class="hg-sub">Added by hand. Import an email that names it to catch it.</span>' + airlines(c);
     }else{
       body = '<span class="hg-st">Not caught yet</span>';
     }
     const tag = c.state === "missing" ? "div" : "a";
-    return '<' + tag + ' class="hg-card ' + c.state + ' t-' + c.tier.id + '"' + (tag === "a" ? ' href="#log" data-ac="' + esc(c.name) + '" aria-label="' + esc(c.name) + ': show its flights"' : "") + '>' +
+    return '<' + tag + ' class="hg-card ' + c.state + ' t-' + c.tier.id + '"' + (tag === "a" ? ' href="#log" data-ac="' + esc(c.name) + '" aria-label="' + esc(c.name) + ': see airlines and photos"' : "") + '>' +
       '<span class="hg-top"><span class="hg-no">' + no + '</span><span class="hg-tier">' + c.tier.label + '</span></span>' +
       '<span class="hg-pic">' + PLANE + '</span>' +
       '<b class="hg-name">' + esc(c.name) + '</b>' + body + '</' + tag + '>';
   }
 
+  // ---------- one aircraft: a square per airline you've flown it with, each with its own photos ----------
+  let detail = null; // aircraft name being shown, or null for the whole collection
+  const PH = () => window.ContrailPhotos;
+  function airlineCards(c){
+    const g = {};
+    c.list.forEach(f => { const k = f.airline || ""; (g[k] = g[k] || []).push(f); });
+    return Object.entries(g).sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0])).map(([code, fl]) => {
+      fl.sort((a, b) => a.date.localeCompare(b.date));
+      const caught = fl.some(f => f.acv), name = code ? App.airlineName(code) : "Airline not known";
+      const k = "ac:" + c.name + "|" + code, ids = App.photosFor(k), label = c.name + (code ? " · " + name : "");
+      const first = fl[0], last = fl[fl.length - 1];
+      return '<div class="hg-alcard ' + (caught ? "caught" : "seen") + '">' +
+        '<button type="button" class="hg-cover' + (ids.length ? " has" : "") + '" data-k="' + esc(k) + '"' + (ids.length ? ' aria-label="Open photos of ' + esc(label) + '"' : ' tabindex="-1" aria-hidden="true"') + '>' +
+          (ids.length ? '<img alt="" data-thumb="' + ids[ids.length - 1] + '">' : '<span class="hg-pic">' + PLANE + '</span>') +
+          '<span class="hg-badge">' + (caught ? "Caught" : "Seen") + '</span>' +
+          (ids.length ? '<span class="hg-pcount">' + ids.length + (ids.length === 1 ? " photo" : " photos") + '</span>' : "") +
+        '</button>' +
+        '<div class="hg-albody"><b class="hg-alname">' + esc(name) + '</b>' +
+          '<span class="hg-alsub">' + (code ? code + " · " : "") + fl.length + (fl.length === 1 ? " flight" : " flights") + '</span>' +
+          '<span class="hg-alsub">' + (fl.length === 1 ? fmt(first.date) + " · " + first.from + " → " + first.to : "First " + fmt(first.date) + " · last " + fmt(last.date)) + '</span>' +
+          (PH() ? PH().drawer(k, ids, label) : "") +
+        '</div></div>';
+    }).join("");
+  }
+  function renderDetail(c){
+    $("hgList").hidden = true; $("hgDetail").hidden = false;
+    $("hgDetail").innerHTML = '<button type="button" class="btn quiet hg-back" id="hgBack">‹ All aircraft</button>' +
+      '<div class="hg-dhead t-' + c.tier.id + ' ' + c.state + '"><span class="hg-pic">' + PLANE + '</span><div>' +
+        '<span class="hg-top"><span class="hg-no">#' + String(c.no).padStart(3, "0") + '</span><span class="hg-tier">' + c.tier.label + '</span></span>' +
+        '<h3>' + esc(c.name) + '</h3><span class="hg-dsub">' + (c.state === "caught" ? "Caught" : "Seen") + ' · ' + c.flights + (c.flights === 1 ? " flight" : " flights") +
+        ' · ' + c.airlines.length + (c.airlines.length === 1 ? " airline" : " airlines") + '</span></div></div>' +
+      '<div class="hg-alcards">' + airlineCards(c) + '</div>';
+    if(PH()) PH().hydrate($("hgDetail"));
+  }
+
   function render(){
+    if(detail){
+      const c = build().find(x => x.name === detail && x.state !== "missing");
+      if(c){ renderDetail(c); return; }
+      detail = null;
+    }
+    $("hgList").hidden = false; $("hgDetail").hidden = true;
     const dex = build(), caught = dex.filter(c => c.state === "caught").length, seen = dex.filter(c => c.state === "seen").length;
     $("hgCount").innerHTML = caught + '<small> / ' + dex.length + '</small>';
     $("hgBar").style.width = (caught / dex.length * 100).toFixed(1) + "%";
@@ -91,10 +143,17 @@
   });
   $("hgGrid").addEventListener("click", e => {
     const a = e.target.closest("a.hg-card"); if(!a) return;
-    e.preventDefault(); App.openLog({ ac: a.dataset.ac });
+    e.preventDefault(); detail = a.dataset.ac; render(); scrollTo(0, 0);
+    const b = $("hgBack"); if(b) b.focus({ preventScroll: true });
+  });
+  $("hgDetail").addEventListener("click", e => {
+    if(e.target.closest("#hgBack")){ const was = detail; detail = null; render();
+      const card = $("hgGrid").querySelector('a.hg-card[data-ac="' + CSS.escape(was) + '"]'); if(card){ card.scrollIntoView({ block: "center" }); card.focus({ preventScroll: true }); } return; }
+    const cov = e.target.closest(".hg-cover.has");
+    if(cov && PH()){ const ids = App.photosFor(cov.dataset.k); PH().open(ids, ids.length - 1, cov.closest(".hg-alcard").querySelector(".hg-alname").textContent + " · " + detail); }
   });
   const visible = () => location.hash === "#hangar";
-  addEventListener("hashchange", () => { if(visible()) render(); });
+  addEventListener("hashchange", () => { if(visible()){ detail = null; render(); } });
   window.ContrailHangar = { refresh(){ if(visible()) render(); } };
   if(visible()) render();
 })();

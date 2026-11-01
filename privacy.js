@@ -111,7 +111,7 @@
         exSay("Adding photo " + (i + 1) + " of " + list.length + "…");
         const blob = await window.ContrailPhotos.getFull(p.id);
         if(!blob){ missing++; continue; }
-        const base = p.date + "_" + p.from + "-" + p.to;
+        const base = p.base || p.date + "_" + p.from + "-" + p.to; // Hangar photos are named after the aircraft and airline
         per[base] = (per[base] || 0) + 1;
         zip.file(base + "_" + per[base] + ".jpg", blob, { binary: true, compression: "STORE" });
         added++;

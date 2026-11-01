@@ -883,7 +883,7 @@ function normalizeRow(r){
 function getDoc(){
   return {app:"Contrail",format:2,updatedAt:Date.now(),wipedAt:wipeSeen(),
     flights:real().slice().sort((a,b)=>a.date.localeCompare(b.date)).map(f=>Object.assign({date:f.date,airline:f.airline||"",flight:f.num||"",from:f.from,to:f.to,added:f.added||0},f.ac?{aircraft:f.ac}:{},f.ac&&f.acv?{aircraftConfirmed:true}:{},f.edited?{edited:f.edited}:{})),
-    photos:photos.filter(p=>real().some(f=>keyOf(f)===p.k)).map(p=>({id:p.id,k:p.k,added:p.added})),
+    photos:photos.filter(p=>p.k.startsWith("ac:")||real().some(f=>keyOf(f)===p.k)).map(p=>({id:p.id,k:p.k,added:p.added})),
     removed:removed.slice(-1000)};
 }
 function setDoc(doc){
@@ -919,8 +919,8 @@ async function wipeLocal(full,wipedAt){
 // ---------- bridge for photos.js ----------
 function addPhotoMeta(k,id){const now=Date.now();removed=removed.filter(r=>r.k!=="p:"+id);photos.push({id,k,added:now});save();}
 function removePhotoMeta(id){photos=photos.filter(p=>p.id!==id);removed=removed.filter(r=>r.k!=="p:"+id);removed.push({k:"p:"+id,at:Date.now()});save();}
-function refreshLog(){renderLog(logList);}
-function flightLabel(k){const f=real().find(x=>keyOf(x)===k);return f?`${f.from} → ${f.to} · ${fmtDate(f.date)}`:"Flight photo";}
+function refreshLog(){renderLog(logList);if(window.ContrailHangar)window.ContrailHangar.refresh();}
+function flightLabel(k){if(k.startsWith("ac:")){const [a,c]=k.slice(3).split("|");return a+(c?" · "+(AL[c]||c):"");}const f=real().find(x=>keyOf(x)===k);return f?`${f.from} → ${f.to} · ${fmtDate(f.date)}`:"Flight photo";}
 // Used by mail.js: show flights found in someone's inbox in the same review list as pasted emails.
 function reviewCandidates(list,message){
   const msg=$("parseMsg");msg.classList.toggle("err",!list.length);msg.textContent=message;
@@ -965,6 +965,7 @@ window.ContrailApp={getDoc,setDoc,keyOf,parseEmails,reviewCandidates,dropNumberl
   photoIds:()=>photos.map(p=>p.id),addPhotoMeta,removePhotoMeta,refreshLog,flightLabel,wipeLocal,wipeSeen,
   counts:()=>({flights:real().length,photos:photos.length}),findAircraft,acList:()=>AC_LIST.slice(),
   flights:()=>real().map(f=>Object.assign({},f)),
+  airlineName:c=>AL[c]||c,photosFor,
   openLog:(filter)=>{openLogWith(filter);location.hash="log";},
   // Total distance flown (real flights, or the examples while the log is empty) for the Space page.
   totalKm:()=>{const l=real().length?real():flights;return l.reduce((s,f)=>s+distKm(f.from,f.to),0);},
@@ -973,7 +974,9 @@ window.ContrailApp={getDoc,setDoc,keyOf,parseEmails,reviewCandidates,dropNumberl
   exportRows:()=>real().slice().sort((a,b)=>a.date.localeCompare(b.date)).map(f=>({date:f.date,airline_code:f.airline||"",airline:AL[f.airline]||"",
     flight:f.airline&&f.num?f.airline+f.num:"",from:f.from,from_city:AP[f.from]?AP[f.from].city:"",to:f.to,to_city:AP[f.to]?AP[f.to].city:"",
     aircraft:f.ac||"",distance_km:Math.round(distKm(f.from,f.to)),distance_mi:Math.round(distKm(f.from,f.to)*0.621371)})),
-  exportPhotos:()=>photos.map(p=>{const f=real().find(x=>keyOf(x)===p.k);return f?{id:p.id,date:f.date,from:f.from,to:f.to,added:p.added}:null;}).filter(Boolean).sort((a,b)=>a.date.localeCompare(b.date)||a.added-b.added)};
+  exportPhotos:()=>photos.map(p=>{
+    if(p.k.startsWith("ac:")){const [a,c]=p.k.slice(3).split("|");return {id:p.id,date:"",base:"Hangar_"+(a+(c?" "+(AL[c]||c):"")).replace(/[^A-Za-z0-9-]+/g,"-"),added:p.added};}
+    const f=real().find(x=>keyOf(x)===p.k);return f?{id:p.id,date:f.date,from:f.from,to:f.to,added:p.added}:null;}).filter(Boolean).sort((a,b)=>a.date.localeCompare(b.date)||a.added-b.added)};
 
 // ---------- Map tab: export the current map with an airport summary as a PNG ----------
 // Uses exactly what's on screen: the period, the selected airport, zoom and position, and the theme.

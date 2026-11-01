@@ -457,3 +457,34 @@ a.hg-card{transition:transform .15s,box-shadow .15s}
 .hg-al{font:11px var(--f-mono);color:var(--muted)}
 .hg-empty{color:var(--muted);margin:18px 0}
 @media (max-width:979.98px){.tabnav{grid-template-columns:repeat(6,1fr)}.tabnav .tab{font-size:10.5px}}
+.hg-als{display:flex;flex-direction:column;gap:3px;margin-top:4px;padding-top:6px;border-top:1px solid var(--line)}
+.hg-alc{display:flex;justify-content:space-between;gap:6px;font-size:12px;min-width:0}
+.hg-alc b{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.hg-alc i{font:normal 11px var(--f-mono);color:var(--muted);flex:none}
+.hg-alm{font:11px var(--f-mono);color:var(--muted)}
+/* Hangar: one aircraft, a card per airline with photos */
+.hg-back{align-self:flex-start;margin-bottom:6px}
+#hgDetail{display:flex;flex-direction:column;gap:14px}
+.hg-dhead{--t:#8A96AB;display:flex;align-items:center;gap:16px;padding:14px;border-radius:14px;border:1px solid var(--line);background:linear-gradient(160deg,color-mix(in srgb,var(--t) 18%,var(--surface)),var(--surface) 65%)}
+.hg-dhead.t-legendary{--t:#E0A021}.hg-dhead.t-epic{--t:#9B6CEB}.hg-dhead.t-rare{--t:#3B82F0}.hg-dhead.t-uncommon{--t:#22A06B}
+.hg-dhead .hg-pic svg{width:72px;height:72px;fill:var(--t)}
+.hg-dhead.seen .hg-pic svg{fill:none;stroke:var(--muted);stroke-width:2;stroke-dasharray:4 3}
+.hg-dhead>div{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+.hg-dhead h3{margin:0;font-family:var(--f-display);font-weight:800;font-size:34px;line-height:1;text-transform:uppercase}
+.hg-dhead .hg-tier{color:var(--t)}
+.hg-dsub{font:12px var(--f-mono);color:var(--muted)}
+.hg-alcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.hg-alcard{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:14px;background:var(--surface);overflow:hidden;min-width:0}
+.hg-cover{position:relative;display:flex;align-items:center;justify-content:center;aspect-ratio:1;border:0;padding:0;background:var(--grid);overflow:hidden}
+.hg-cover.has{cursor:zoom-in}
+.hg-cover img{width:100%;height:100%;object-fit:cover;display:block}
+.hg-cover .hg-pic svg{width:72px;height:72px;fill:color-mix(in srgb,var(--muted) 45%,transparent)}
+.hg-badge{position:absolute;top:10px;left:10px;font:600 10px var(--f-mono);letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:999px;background:var(--signal);color:#1A1205}
+.hg-alcard.seen .hg-badge{background:var(--surface);color:var(--muted);border:1px dashed var(--muted)}
+.hg-pcount{position:absolute;bottom:10px;right:10px;font:11px var(--f-mono);padding:3px 8px;border-radius:999px;background:rgba(0,0,0,.55);color:#fff}
+.hg-albody{display:flex;flex-direction:column;gap:3px;padding:12px}
+.hg-alname{font-size:17px}
+.hg-alsub{font-size:12.5px;color:var(--muted)}
+.hg-albody .legph{margin-top:8px;border-top:1px solid var(--line);padding-top:10px}
+.hg-albody .phbar{flex-wrap:wrap}
+.hg-albody .phnote{display:none}
