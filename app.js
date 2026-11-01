@@ -295,20 +295,24 @@ function renderRecords(list,km){
   list.forEach(f=>{const k=[f.from,f.to].sort().join(" ⇄ ");routes[k]=(routes[k]||0)+1;ports[f.from]=(ports[f.from]||0)+1;ports[f.to]=(ports[f.to]||0)+1;if(f.airline)lines[f.airline]=(lines[f.airline]||0)+1;});
   const top=o=>Object.entries(o).sort((a,b)=>b[1]-a[1])[0];
   const tr=top(routes),tp=top(ports),tl=top(lines);
-  const cell=(lab,big,sub)=>`<div class="rec"><span class="label">${lab}</span><span class="big">${big}</span><span class="sub">${sub}</span></div>`;
+  // Each record opens the Flight log filtered to it (filter = what to show); without one it's plain text.
+  const cell=(lab,big,sub,filter)=>filter
+    ?`<a class="rec recbtn" href="#log" data-filter='${esc(JSON.stringify(filter)).replace(/'/g,"&#39;")}' aria-label="${lab}: show these flights in the flight log"><span class="label">${lab}</span><span class="big">${big}</span><span class="sub">${sub} <span class="go">›</span></span></a>`
+    :`<div class="rec"><span class="label">${lab}</span><span class="big">${big}</span><span class="sub">${sub}</span></div>`;
+  const ac={};list.forEach(f=>{if(f.ac)ac[f.ac]=(ac[f.ac]||0)+1;});const ta=top(ac),nAc=Object.keys(ac).length;
+  const [r1,r2]=tr[0].split(" ⇄ ");
   R.innerHTML=
-    cell("Longest flight",`${L.f.from} → ${L.f.to}`,`${fmtDist(L.d)} ${unit} · ${fmtDate(L.f.date)}`)+
-    cell("Shortest flight",`${S.f.from} → ${S.f.to}`,`${fmtDist(S.d)} ${unit} · ${fmtDate(S.f.date)}`)+
-    cell("Most-flown route",tr[0],`${tr[1]} ${tr[1]===1?"time":"times"}`)+
-    cell("Home base",tp[0],`${esc(AP[tp[0]].city)} · ${tp[1]} visits`)+
-    cell("Top airline",tl?esc(AL[tl[0]]||tl[0]):"—",tl?`${tl[1]} ${tl[1]===1?"flight":"flights"}`:"No flight numbers yet")+
-    `<a class="rec recbtn" href="#space"><span class="label">To the Moon</span><span class="big">${km>=384400?(km/384400).toFixed(2)+"×":((km/384400)*100).toFixed(1)+"%"}</span><span class="sub">${km>=384400?"there and beyond":"of the way"} · <span class="go">See it in the solar system ›</span></span></a>`+
-    (()=>{const ac={};list.forEach(f=>{if(f.ac)ac[f.ac]=(ac[f.ac]||0)+1;});const t=top(ac),n=Object.keys(ac).length;
-      return cell("Top aircraft",t?esc(t[0]):"—",t?`${t[1]} ${t[1]===1?"flight":"flights"}`:"Add aircraft in the flight log")+
-        cell("Aircraft types",String(n),n?`on ${Object.values(ac).reduce((a,b)=>a+b,0)} of ${list.length} flights`:"None recorded yet");})();
+    cell("Longest flight",`${L.f.from} → ${L.f.to}`,`${fmtDist(L.d)} ${unit} · ${fmtDate(L.f.date)}`,{route:[L.f.from,L.f.to],from:L.f.date,to:L.f.date,oneway:true})+
+    cell("Shortest flight",`${S.f.from} → ${S.f.to}`,`${fmtDist(S.d)} ${unit} · ${fmtDate(S.f.date)}`,{route:[S.f.from,S.f.to],from:S.f.date,to:S.f.date,oneway:true})+
+    cell("Most-flown route",tr[0],`${tr[1]} ${tr[1]===1?"time":"times"}`,{route:[r1,r2]})+
+    cell("Home base",tp[0],`${esc(AP[tp[0]].city)} · ${tp[1]} visits`,{ap:tp[0]})+
+    cell("Top airline",tl?esc(AL[tl[0]]||tl[0]):"—",tl?`${tl[1]} ${tl[1]===1?"flight":"flights"}`:"No flight numbers yet",tl?{al:tl[0]}:null)+
+    `<a class="rec recbtn" href="#space" aria-label="To the Moon: see your distance in the solar system"><span class="label">To the Moon</span><span class="big">${km>=384400?(km/384400).toFixed(2)+"×":((km/384400)*100).toFixed(1)+"%"}</span></a>`+
+    cell("Top aircraft",ta?esc(ta[0]):"—",ta?`${ta[1]} ${ta[1]===1?"flight":"flights"}`:"Add aircraft in the flight log",ta?{ac:ta[0]}:null)+
+    cell("Aircraft types",String(nAc),nAc?`on ${Object.values(ac).reduce((a,b)=>a+b,0)} of ${list.length} flights`:"None recorded yet",nAc?{ac:"*"}:null);
   const yrs={};list.forEach(f=>{const y=f.date.slice(0,4);yrs[y]=(yrs[y]||0)+1;});
   const ys=Object.keys(yrs).sort(),mx=Math.max(...Object.values(yrs));
-  Y.innerHTML='<span class="label">Flights per year</span>'+ys.map(y=>`<div class="yr"><span>${y}</span><span class="bar"><i style="width:${(yrs[y]/mx*100).toFixed(1)}%"></i></span><b>${yrs[y]}</b></div>`).join("");
+  Y.innerHTML='<span class="label">Flights per year</span>'+ys.map(y=>`<a class="yr" href="#log" data-year="${y}" aria-label="${yrs[y]} flights in ${y}: show them in the flight log"><span>${y}</span><span class="bar"><i style="width:${(yrs[y]/mx*100).toFixed(1)}%"></i></span><b>${yrs[y]}</b></a>`).join("");
 }
 // Flight log: tabs for All time, YTD and each year, 10 flights per page (newest first).
 const PAGE=10,TKEY="contrail.logTab";
@@ -325,9 +329,10 @@ function logPeriods(list){
 // ---------- flight log search and filters ----------
 // Search matches every word typed against the airports, their cities, the airline (code and name),
 // the flight number and the aircraft. Filters narrow by date range, airport, airline and aircraft.
-const lf={q:"",from:"",to:"",ap:"",al:"",ac:""};
-function lfActive(){return !!(lf.q||lf.from||lf.to||lf.ap||lf.al||lf.ac);}
-function lfCount(){return ["from","to","ap","al","ac"].filter(k=>lf[k]).length;}
+// route: a pair of airports opened from Records (both directions unless oneway); not shown in the panel.
+const lf={q:"",from:"",to:"",ap:"",al:"",ac:"",route:null,oneway:false};
+function lfActive(){return !!(lf.q||lf.from||lf.to||lf.ap||lf.al||lf.ac||lf.route);}
+function lfCount(){return ["from","to","ap","al","ac","route"].filter(k=>lf[k]).length;}
 function haystack(f){
   return [f.from,f.to,AP[f.from]&&AP[f.from].city,AP[f.to]&&AP[f.to].city,f.airline,AL[f.airline],
     f.airline&&f.num?f.airline+f.num:"",f.airline&&f.num?f.airline+" "+f.num:"",f.num,f.ac,f.date].filter(Boolean).join(" ").toLowerCase();
@@ -337,7 +342,8 @@ function lfMatch(f){
   if(lf.to&&f.date>lf.to)return false;
   if(lf.ap&&f.from!==lf.ap&&f.to!==lf.ap)return false;
   if(lf.al&&f.airline!==lf.al)return false;
-  if(lf.ac&&(f.ac||"")!==lf.ac)return false;
+  if(lf.ac==="*"?!f.ac:(lf.ac&&(f.ac||"")!==lf.ac))return false;
+  if(lf.route){const [a,b]=lf.route;if(!((f.from===a&&f.to===b)||(!lf.oneway&&f.from===b&&f.to===a)))return false;}
   if(lf.q){const h=haystack(f);if(!lf.q.toLowerCase().split(/\s+/).filter(Boolean).every(w=>h.includes(w)))return false;}
   return true;
 }
@@ -348,7 +354,10 @@ function fillFilterLists(list){
   const aps=[...new Set(list.flatMap(f=>[f.from,f.to]))].map(c=>[c,`${AP[c].city} (${c})`]).sort((a,b)=>a[1].localeCompare(b[1]));
   const als=[...new Set(list.map(f=>f.airline).filter(Boolean))].map(c=>[c,`${AL[c]||c} (${c})`]).sort((a,b)=>a[1].localeCompare(b[1]));
   const acs=[...new Set(list.map(f=>f.ac).filter(Boolean))].sort().map(a=>[a,a]);
-  fill("lfAp",aps,"Any airport");fill("lfAl",als,"Any airline");fill("lfAc",acs,"Any aircraft");
+  fill("lfAp",aps,"Any airport");fill("lfAl",als,"Any airline");fill("lfAc",[["*","Any recorded aircraft"]].concat(acs),"Any aircraft");
+  // a route opened from Records shows as a removable chip
+  $("lfRoute").hidden=!lf.route;
+  if(lf.route)$("lfRouteText").textContent=lf.route[0]+(lf.oneway?" → ":" ⇄ ")+lf.route[1];
   const n=lfCount();$("lfCount").textContent=n?String(n):"";$("lfCount").hidden=!n;$("lfClear").hidden=!lfActive();
 }
 function renderLog(list){
@@ -652,8 +661,20 @@ $("acList").innerHTML=AC_LIST.map(n=>`<option value="${n}"></option>`).join("");
 let lqT=0;
 $("lq").addEventListener("input",e=>{clearTimeout(lqT);lqT=setTimeout(()=>{lf.q=e.target.value.trim();logPage=0;renderLog(logList);},150);});
 [["lfFrom","from"],["lfTo","to"],["lfAp","ap"],["lfAl","al"],["lfAc","ac"]].forEach(([id,k])=>$(id).addEventListener("change",e=>{lf[k]=e.target.value;logPage=0;renderLog(logList);}));
-function clearFilters(){Object.keys(lf).forEach(k=>lf[k]="");["lq","lfFrom","lfTo"].forEach(id=>$(id).value="");logPage=0;renderLog(logList);$("lq").focus();}
+function clearFilters(){Object.keys(lf).forEach(k=>lf[k]="");lf.route=null;lf.oneway=false;["lq","lfFrom","lfTo"].forEach(id=>$(id).value="");logPage=0;renderLog(logList);$("lq").focus();}
 $("lfClear").addEventListener("click",clearFilters);
+$("lfRouteX").addEventListener("click",()=>{lf.route=null;lf.oneway=false;logPage=0;renderLog(logList);});
+// Records → Flight log, filtered
+function openLogWith(filter,year){
+  Object.keys(lf).forEach(k=>lf[k]="");lf.route=null;lf.oneway=false;
+  Object.assign(lf,filter||{});
+  $("lq").value=lf.q;$("lfFrom").value=lf.from;$("lfTo").value=lf.to;
+  logTab=year||"all";logPage=0;
+  if(lfCount()-(lf.route?1:0)>0){$("lfPanel").hidden=false;$("lfToggle").setAttribute("aria-expanded","true");}
+  renderLog(logList);
+}
+$("records").addEventListener("click",e=>{const a=e.target.closest("a.recbtn[data-filter]");if(!a)return;openLogWith(JSON.parse(a.dataset.filter));});
+$("years").addEventListener("click",e=>{const a=e.target.closest("a.yr");if(!a)return;openLogWith(null,a.dataset.year);});
 $("log").addEventListener("click",e=>{if(e.target.closest("#lfClear2"))clearFilters();});
 $("lfToggle").addEventListener("click",()=>{const open=$("lfPanel").hidden;$("lfPanel").hidden=!open;$("lfToggle").setAttribute("aria-expanded",String(open));});
 if(matchMedia("(min-width: 980px)").matches){$("lfPanel").hidden=false;$("lfToggle").setAttribute("aria-expanded","true");}
