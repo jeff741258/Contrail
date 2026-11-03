@@ -18,7 +18,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="styles.css?v=20261102d">
+<link rel="stylesheet" href="styles.css?v=20261102f">
 </head>
 <body>
 <div class="shell">
@@ -32,9 +32,14 @@
     <div class="unit" role="group" aria-label="Distance unit">
       <button id="u-mi" aria-pressed="true">mi</button><button id="u-km" aria-pressed="false">km</button>
     </div>
-    <button class="btn install" id="installBtn" type="button" hidden>Install app</button>
+    <button class="btn install" id="installBtn" type="button" aria-expanded="false" aria-controls="installHelp" hidden>Install app</button>
     </div>
   </header>
+  <div class="install-help" id="installHelp" role="dialog" aria-label="Install Contrail" hidden>
+    <button type="button" class="ih-x" id="ihClose" aria-label="Close">×</button>
+    <b>Install Contrail</b>
+    <ol id="ihSteps"></ol>
+  </div>
 
   <main id="main">
     <div class="view" data-view="home">
@@ -54,7 +59,7 @@
         <div class="stat"><span class="label">Airports</span><span class="v" id="sAirports">0</span></div>
         <div class="stat"><span class="label">Airlines</span><span class="v" id="sAirlines">0</span></div>
         <div class="stat"><span class="label">Countries</span><span class="v" id="sCountries">0</span></div>
-        <a class="stat co2stat" href="#carbon" aria-label="Carbon footprint: see how many trees would balance it"><span class="label">Carbon footprint</span><span class="v" id="sCo2">0</span><span class="sub" id="sCo2Note"></span><span class="go">Trees to balance it ›</span></a>
+        <a class="stat co2stat" href="#carbon" aria-label="Carbon footprint: see how many trees would balance it"><span class="label">Carbon footprint</span><span class="v" id="sCo2">0</span><span class="sub" id="sCo2Note"></span></a>
       </div>
 
       <div id="routeHome"></div>
@@ -302,19 +307,19 @@
   </nav>
 </div>
 
-<script src="airports.js?v=20261102d"></script>
-<script src="land.js?v=20261102d"></script>
-<script src="app.js?v=20261102d"></script>
-<script src="config.js?v=20261102d"></script>
-<script src="common.js?v=20261102d"></script>
-<script src="msauth.js?v=20261102d"></script>
-<script src="google.js?v=20261102d"></script>
-<script src="microsoft.js?v=20261102d"></script>
-<script src="apple.js?v=20261102d"></script>
-<script src="sync.js?v=20261102d"></script>
-<script src="mail.js?v=20261102d"></script>
-<script src="photos.js?v=20261102d"></script>
-<script src="privacy.js?v=20261102d"></script>
+<script src="airports.js?v=20261102f"></script>
+<script src="land.js?v=20261102f"></script>
+<script src="app.js?v=20261102f"></script>
+<script src="config.js?v=20261102f"></script>
+<script src="common.js?v=20261102f"></script>
+<script src="msauth.js?v=20261102f"></script>
+<script src="google.js?v=20261102f"></script>
+<script src="microsoft.js?v=20261102f"></script>
+<script src="apple.js?v=20261102f"></script>
+<script src="sync.js?v=20261102f"></script>
+<script src="mail.js?v=20261102f"></script>
+<script src="photos.js?v=20261102f"></script>
+<script src="privacy.js?v=20261102f"></script>
 <script>
 // theme switch: Auto / Light / Dark, remembered on this device
 (function(){
@@ -331,11 +336,11 @@
   apply(root.dataset.theme||"auto");
 })();
 </script>
-<script src="silhouettes.js?v=20261102d"></script>
-<script src="collections.js?v=20261102d"></script>
-<script src="hangar.js?v=20261102d"></script>
-<script src="carbon.js?v=20261102d"></script>
-<script src="space.js?v=20261102d"></script>
+<script src="silhouettes.js?v=20261102f"></script>
+<script src="collections.js?v=20261102f"></script>
+<script src="hangar.js?v=20261102f"></script>
+<script src="carbon.js?v=20261102f"></script>
+<script src="space.js?v=20261102f"></script>
 <script>
 // Tabs: Overview, Map, Flight log, Hangar, Add flights, Account. The open tab is in the address (#log etc.) so it can be bookmarked.
 (function(){
@@ -363,7 +368,29 @@
   if("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
   let prompt = null; const btn = document.getElementById("installBtn");
   addEventListener("beforeinstallprompt", e => { e.preventDefault(); prompt = e; btn.hidden = false; });
-  btn.addEventListener("click", async () => { if(!prompt) return; prompt.prompt(); await prompt.userChoice.catch(() => {}); prompt = null; btn.hidden = true; });
+  // Apple devices can't be asked to install from a button, so on those the button shows the steps instead.
+  const help = document.getElementById("installHelp"), steps = document.getElementById("ihSteps");
+  const standalone = navigator.standalone || matchMedia("(display-mode: standalone)").matches;
+  const ua = navigator.userAgent, iOS = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+  const macSafari = !iOS && /Macintosh/.test(ua) && /Safari\//.test(ua) && !/Chrome|Chromium|Edg|Firefox|OPR/.test(ua);
+  const SHARE = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="vertical-align:-3px"><path d="M12 15V3M7 8l5-5 5 5M5 11v10h14V11"/></svg>';
+  let appleSteps = "";
+  if(!standalone && iOS){
+    const inSafari = !/CriOS|FxiOS|EdgiOS|OPiOS/.test(ua);
+    appleSteps = (inSafari ? "" : "<li>For the best result, open this page in <b>Safari</b>.</li>") +
+      "<li>Tap the <b>Share</b> button " + SHARE + (inSafari ? " in Safari's toolbar" : "") + ".</li>" +
+      "<li>Scroll down and tap <b>Add to Home Screen</b>.</li><li>Tap <b>Add</b>. Contrail appears on your home screen and opens full-screen.</li>";
+  }else if(!standalone && macSafari){
+    appleSteps = "<li>In the menu bar, choose <b>File → Add to Dock</b>.</li><li>Click <b>Add</b>. Contrail opens in its own window from the Dock.</li>";
+  }
+  if(appleSteps){ steps.innerHTML = appleSteps; btn.hidden = false; }
+  const toggle = open => { help.hidden = !open; btn.setAttribute("aria-expanded", String(open)); };
+  document.getElementById("ihClose").addEventListener("click", () => { toggle(false); btn.focus(); });
+  document.addEventListener("keydown", e => { if(e.key === "Escape" && !help.hidden){ toggle(false); btn.focus(); } });
+  btn.addEventListener("click", async () => {
+    if(prompt){ prompt.prompt(); await prompt.userChoice.catch(() => {}); prompt = null; btn.hidden = true; return; }
+    if(appleSteps) toggle(help.hidden);
+  });
   addEventListener("appinstalled", () => { btn.hidden = true; });
 })();
 </script>

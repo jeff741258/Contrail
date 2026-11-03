@@ -623,3 +623,7 @@ a.stat.co2stat:hover{background:color-mix(in srgb,var(--accent) 7%,transparent)}
 .cb-fields.cb-3d canvas{display:block;width:100%!important;height:auto!important}
 .cb-more-note{margin:-4px 0 0;font:600 13px var(--f-mono);color:var(--muted)}
 .cb-more-note:empty{display:none}
+/* install steps for iPhone, iPad and Mac Safari */
+.install-help{position:relative;margin:4px 0 0;padding:14px 40px 14px 16px;border:1px solid var(--accent);border-radius:12px;background:var(--accent-soft);font-size:14px}
+.install-help ol{margin:8px 0 0;padding-left:20px;display:flex;flex-direction:column;gap:5px}
+.ih-x{position:absolute;top:6px;right:8px;border:0;background:none;color:var(--muted);font-size:20px;cursor:pointer;padding:4px 8px}
