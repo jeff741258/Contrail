@@ -618,3 +618,8 @@ a.stat.co2stat:hover{background:color-mix(in srgb,var(--accent) 7%,transparent)}
 .cb-lines polygon.cb-ez{stroke:none;fill:rgba(255,255,255,.12)}
 .cb-shadows ellipse{fill:rgba(0,0,0,.28)}
 .cb-more{display:flex;align-items:center;justify-content:center;border:2px dashed var(--line);border-radius:10px;font:600 18px var(--f-mono);color:var(--muted);min-height:100px}
+.cb-fields.cb-3d{display:block;border-radius:14px;overflow:hidden;border:1px solid var(--line);cursor:grab;line-height:0}
+.cb-fields.cb-3d:active{cursor:grabbing}
+.cb-fields.cb-3d canvas{display:block;width:100%!important;height:auto!important}
+.cb-more-note{margin:-4px 0 0;font:600 13px var(--f-mono);color:var(--muted)}
+.cb-more-note:empty{display:none}
