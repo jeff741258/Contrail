@@ -18,7 +18,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="styles.css?v=20261102a">
+<link rel="stylesheet" href="styles.css?v=20261102b">
 </head>
 <body>
 <div class="shell">
@@ -54,7 +54,7 @@
         <div class="stat"><span class="label">Airports</span><span class="v" id="sAirports">0</span></div>
         <div class="stat"><span class="label">Airlines</span><span class="v" id="sAirlines">0</span></div>
         <div class="stat"><span class="label">Countries</span><span class="v" id="sCountries">0</span></div>
-        <div class="stat co2stat"><span class="label">Carbon footprint</span><span class="v" id="sCo2">0</span><span class="sub" id="sCo2Note"></span></div>
+        <a class="stat co2stat" href="#carbon" aria-label="Carbon footprint: see how many trees would balance it"><span class="label">Carbon footprint</span><span class="v" id="sCo2">0</span><span class="sub" id="sCo2Note"></span><span class="go">Trees to balance it ›</span></a>
       </div>
 
       <div id="routeHome"></div>
@@ -256,6 +256,21 @@
       </section>
     </div>
 
+    <div class="view" data-view="carbon" hidden>
+      <section class="carbon" aria-labelledby="cbTitle">
+        <a class="sp-back cb-back" href="#overview">‹ Overview</a>
+        <div class="cb-head">
+          <span class="label">Carbon footprint</span>
+          <h2 id="cbTitle"><span id="cbTotal"></span> <small>CO₂e</small></h2>
+          <p id="cbLead"></p>
+        </div>
+        <div class="logtabs" id="cbYears" role="tablist" aria-label="How long the trees have to grow"></div>
+        <div class="cb-big"><span class="cb-n" id="cbFields"></span><span id="cbFieldsLabel"></span></div>
+        <div class="cb-fields" id="cbGrid" role="img"></div>
+        <p class="hint" id="cbNote"></p>
+      </section>
+    </div>
+
     <div class="view" data-view="space" hidden>
       <section class="space" id="space" aria-labelledby="spTitle">
         <div class="sp-top"><a class="sp-back" href="#overview">‹ Overview</a><button class="sp-ex" id="spExport" type="button"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="vertical-align:-2px;margin-right:5px"><path d="M12 15V3M7 8l5-5 5 5M5 13v7h14v-7"/></svg>Share</button></div>
@@ -286,19 +301,19 @@
   </nav>
 </div>
 
-<script src="airports.js?v=20261102a"></script>
-<script src="land.js?v=20261102a"></script>
-<script src="app.js?v=20261102a"></script>
-<script src="config.js?v=20261102a"></script>
-<script src="common.js?v=20261102a"></script>
-<script src="msauth.js?v=20261102a"></script>
-<script src="google.js?v=20261102a"></script>
-<script src="microsoft.js?v=20261102a"></script>
-<script src="apple.js?v=20261102a"></script>
-<script src="sync.js?v=20261102a"></script>
-<script src="mail.js?v=20261102a"></script>
-<script src="photos.js?v=20261102a"></script>
-<script src="privacy.js?v=20261102a"></script>
+<script src="airports.js?v=20261102b"></script>
+<script src="land.js?v=20261102b"></script>
+<script src="app.js?v=20261102b"></script>
+<script src="config.js?v=20261102b"></script>
+<script src="common.js?v=20261102b"></script>
+<script src="msauth.js?v=20261102b"></script>
+<script src="google.js?v=20261102b"></script>
+<script src="microsoft.js?v=20261102b"></script>
+<script src="apple.js?v=20261102b"></script>
+<script src="sync.js?v=20261102b"></script>
+<script src="mail.js?v=20261102b"></script>
+<script src="photos.js?v=20261102b"></script>
+<script src="privacy.js?v=20261102b"></script>
 <script>
 // theme switch: Auto / Light / Dark, remembered on this device
 (function(){
@@ -315,15 +330,16 @@
   apply(root.dataset.theme||"auto");
 })();
 </script>
-<script src="silhouettes.js?v=20261102a"></script>
-<script src="collections.js?v=20261102a"></script>
-<script src="hangar.js?v=20261102a"></script>
-<script src="space.js?v=20261102a"></script>
+<script src="silhouettes.js?v=20261102b"></script>
+<script src="collections.js?v=20261102b"></script>
+<script src="hangar.js?v=20261102b"></script>
+<script src="carbon.js?v=20261102b"></script>
+<script src="space.js?v=20261102b"></script>
 <script>
 // Tabs: Overview, Map, Flight log, Hangar, Add flights, Account. The open tab is in the address (#log etc.) so it can be bookmarked.
 (function(){
   const views=[...document.querySelectorAll(".view")], tabs=[...document.querySelectorAll(".tabnav .tab")];
-  const byHash={overview:"home",map:"map",hangar:"hangar",add:"add",log:"log",account:"account",records:"home",space:"space"};
+  const byHash={overview:"home",map:"map",hangar:"hangar",add:"add",log:"log",account:"account",records:"home",space:"space",carbon:"carbon"};
   function show(){
     const v=byHash[location.hash.slice(1)]||"home";
     // The route chart is one element shared by Overview and the Map tab, moved to whichever is open,

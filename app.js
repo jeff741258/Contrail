@@ -1060,6 +1060,8 @@ window.ContrailApp={getDoc,setDoc,keyOf,parseEmails,reviewCandidates,dropNumberl
     save();refreshLog();},
   openLog:(filter)=>{openLogWith(filter);location.hash="log";},
   // Total distance flown (real flights, or the examples while the log is empty) for the Space page.
+  // carbon for the Carbon page: total kg CO₂e (real flights, or the examples while the log is empty)
+  co2Total:()=>{const l=real().length?real():flights;return l.reduce((s,f)=>s+co2Kg(f),0);},fmtCo2,
   totalKm:()=>{const l=real().length?real():flights;return l.reduce((s,f)=>s+distKm(f.from,f.to),0);},
   fmtDist:(km,dec)=>fmtDist(km,dec),unit:()=>unit,isExample:()=>!real().length,
   // For "Export your data"
