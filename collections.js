@@ -105,7 +105,8 @@
       '<div class="hg-prog"><p>' + (stamps.length ? "Your first stamp: " + order[0] + " on " + fmt(ap[order[0]].first) + "." : "Every airport you fly through gets a stamp.") + '</p></div></div>' +
       '<div class="logtabs" role="tablist" aria-label="Order stamps by">' + [["first", "First visit"], ["most", "Most flights"], ["az", "A–Z"]].map(([id, l]) =>
         '<button type="button" role="tab" class="ltab" data-pps="' + id + '" aria-selected="' + (ppSort === id) + '">' + l + '</button>').join("") + '</div>' +
-      '<div class="pp-page">' + stamps.map(s => stamp(s, order.indexOf(s.code))).join("") + '</div>';
+      '<div class="pp-page">' + stamps.map(s => stamp(s, order.indexOf(s.code))).join("") + '</div>' +
+      '<p class="hint">Stamps are shaped like each airport\'s runways, north up.</p>';
   }
 
   function render(section, el){ (section === "passport" ? passport : airlines)(el); }

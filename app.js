@@ -106,6 +106,12 @@ const EXAMPLES=[
 // ---------- geometry ----------
 const R=6371;
 function rad(d){return d*Math.PI/180}
+// ---------- carbon ----------
+// Estimated CO₂e for one economy seat, from the UK government's 2025 conversion factors (DESNZ),
+// including the extra warming from contrails and other non-CO₂ effects at altitude ("with RF").
+// Short hops burn more per km because take-off is a bigger share of the trip.
+function co2Kg(f){const d=distKm(f.from,f.to);return d*(d<785?0.229:d<3700?0.126:0.117);}
+function fmtCo2(kg){return kg>=1000?(kg/1000).toLocaleString(undefined,{maximumFractionDigits:kg>=1e5?0:1})+" t":Math.round(kg).toLocaleString()+" kg";}
 function distKm(a,b){const A=AP[a],B=AP[b]; if(!A||!B)return 0;
   const dLat=rad(B.lat-A.lat),dLon=rad(B.lon-A.lon);
   const h=Math.sin(dLat/2)**2+Math.cos(rad(A.lat))*Math.cos(rad(B.lat))*Math.sin(dLon/2)**2;
@@ -326,6 +332,10 @@ function render(){
   $("sDist").innerHTML=fmtDist(km)+"<em>"+unit+"</em>";
   $("sLaps").innerHTML=(km/40075).toFixed(2)+"<em>×</em>";
   $("sHours").textContent=Math.round(km/800+0.5*n).toLocaleString();
+  // carbon: total, plus a yearly average over the years the log covers
+  const co2=list.reduce((t,f)=>t+co2Kg(f),0),yrs=n?Math.max(1,(Date.now()-new Date(list[list.length-1].date).getTime())/(365.25*864e5)):1;
+  $("sCo2").innerHTML=fmtCo2(co2).replace(/ (t|kg)$/,"<em>$1</em>");
+  $("sCo2Note").textContent=n?`CO₂e for an economy seat · about ${fmtCo2(co2/yrs)} a year`:"";
   $("sAirports").textContent=aps.size;$("sAirlines").textContent=als.size;$("sCountries").textContent=ccs.size;
   document.querySelectorAll(".unit button").forEach(b=>b.setAttribute("aria-pressed",String(b.id==="u-"+unit)));
   renderRecords(list,km);renderLog(list);drawMap(list);
@@ -434,7 +444,7 @@ function renderLog(list){
   const km=shown.reduce((s,f)=>s+distKm(f.from,f.to),0);
   const label=tab.id==="all"?"All time":tab.id==="ytd"?"This year so far":tab.label;
   const of=lfActive()?` of ${all.filter(tab.test).length}`:"";
-  S.textContent=`${label}: ${lfActive()?"showing ":""}${shown.length}${of} ${(of?all.filter(tab.test).length:shown.length)===1?"flight":"flights"} · ${fmtDist(km)} ${unit}`+(shown.length?` · ${new Set(shown.flatMap(f=>[f.from,f.to])).size} airports`:"");
+  S.textContent=`${label}: ${lfActive()?"showing ":""}${shown.length}${of} ${(of?all.filter(tab.test).length:shown.length)===1?"flight":"flights"} · ${fmtDist(km)} ${unit}`+(shown.length?` · ${new Set(shown.flatMap(f=>[f.from,f.to])).size} airports · ${fmtCo2(shown.reduce((t,f)=>t+co2Kg(f),0))} CO₂e`:"");
   const pages=Math.max(1,Math.ceil(shown.length/PAGE));
   logPage=Math.min(logPage,pages-1);
   const page=shown.slice(logPage*PAGE,logPage*PAGE+PAGE);
@@ -450,7 +460,7 @@ function renderLog(list){
     const phb=f.example||!PH?'<span></span>':`<button type="button" class="phb${ids.length?" has":""}" data-k="${esc(k)}" aria-expanded="${open}" aria-label="${ids.length?ids.length+(ids.length===1?" photo":" photos"):"Add photos"} for ${label}">`+
       (ids.length?`<img alt="" data-thumb="${ids[0]}"><span class="phn">${ids.length}</span>`:CAMERA)+`</button>`;
     if(editFlight===f.id)return editForm(f,label);
-    return `<div class="leg${open?" open":""}${f.id===focusId?" flash":""}" data-fid="${f.id}"><span class="d">${f.date}</span><span class="r"><b>${f.from} → ${f.to}${f.example?'<span class="tag">Example</span>':""}</b><span>${fl} · ${esc(a.city)} to ${esc(b.city)}</span><span class="chips">${editAc===f.id?`<form class="acform" data-id="${f.id}"><input class="acin" list="acList" maxlength="40" value="${esc(f.ac||"")}" placeholder="e.g. Boeing 737-800" aria-label="Aircraft for ${label}" autocomplete="off"><button class="btn" type="submit">Save</button><button class="btn quiet acx" type="button">Cancel</button></form>`:f.example?(f.ac?`<span class="acv">${esc(f.ac)}</span>`:""):`<button type="button" class="acb${f.ac?"":" add"}" data-id="${f.id}" aria-label="${f.ac?"Change aircraft, "+esc(f.ac):"Add aircraft"} for ${label}">${f.ac?esc(f.ac):"+ Aircraft"}</button>`}${regChip(f,label)}${f.example?"":`<button type="button" class="acb edb" data-id="${f.id}" aria-label="Edit ${label}"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16Z"/></svg> Edit</button>`}</span></span><span class="km">${fmtDist(distKm(f.from,f.to))} ${unit}</span>${phb}<button class="x" data-id="${f.id}" aria-label="Remove ${label}">×</button></div>`+
+    return `<div class="leg${open?" open":""}${f.id===focusId?" flash":""}" data-fid="${f.id}"><span class="d">${f.date}</span><span class="r"><b>${f.from} → ${f.to}${f.example?'<span class="tag">Example</span>':""}</b><span>${fl} · ${esc(a.city)} to ${esc(b.city)}</span><span class="chips">${editAc===f.id?`<form class="acform" data-id="${f.id}"><input class="acin" list="acList" maxlength="40" value="${esc(f.ac||"")}" placeholder="e.g. Boeing 737-800" aria-label="Aircraft for ${label}" autocomplete="off"><button class="btn" type="submit">Save</button><button class="btn quiet acx" type="button">Cancel</button></form>`:f.example?(f.ac?`<span class="acv">${esc(f.ac)}</span>`:""):`<button type="button" class="acb${f.ac?"":" add"}" data-id="${f.id}" aria-label="${f.ac?"Change aircraft, "+esc(f.ac):"Add aircraft"} for ${label}">${f.ac?esc(f.ac):"+ Aircraft"}</button>`}${regChip(f,label)}${f.example?"":`<button type="button" class="acb edb" data-id="${f.id}" aria-label="Edit ${label}"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16Z"/></svg> Edit</button>`}</span></span><span class="km">${fmtDist(distKm(f.from,f.to))} ${unit}<small class="co2" title="Estimated CO₂e for one economy seat">${fmtCo2(co2Kg(f))} CO₂e</small></span>${phb}<button class="x" data-id="${f.id}" aria-label="Remove ${label}">×</button></div>`+
       (open?PH.drawer(esc(k),ids,label):"");}).join("");
   if(PH)PH.hydrate(L);
 }
@@ -850,7 +860,7 @@ $("pgNext").addEventListener("click",()=>{logPage++;renderLog(logList);});
 $("u-mi").addEventListener("click",()=>{unit="mi";try{localStorage.setItem(UKEY,unit)}catch(e){}render();showCandidates(candidates);});
 $("u-km").addEventListener("click",()=>{unit="km";try{localStorage.setItem(UKEY,unit)}catch(e){}render();showCandidates(candidates);});
 $("copyCsv").addEventListener("click",()=>{
-  const rows=[["date","airline","flight","from","to","aircraft","registration","distance_km"]].concat(flights.slice().sort((a,b)=>a.date.localeCompare(b.date)).map(f=>[f.date,AL[f.airline]||"",f.airline?f.airline+f.num:"",f.from,f.to,(f.ac||"").replace(/,/g," "),f.reg||"",Math.round(distKm(f.from,f.to))]));
+  const rows=[["date","airline","flight","from","to","aircraft","registration","distance_km","co2e_kg"]].concat(flights.slice().sort((a,b)=>a.date.localeCompare(b.date)).map(f=>[f.date,AL[f.airline]||"",f.airline?f.airline+f.num:"",f.from,f.to,(f.ac||"").replace(/,/g," "),f.reg||"",Math.round(distKm(f.from,f.to)),Math.round(co2Kg(f))]));
   const csv=rows.map(r=>r.join(",")).join("\n");const btn=$("copyCsv");
   const done=()=>{btn.textContent="Copied";setTimeout(()=>btn.textContent="Copy as CSV",1600);};
   try{navigator.clipboard.writeText(csv).then(done,()=>{$("emailIn").value=csv;$("emailIn").select();btn.textContent="Selected in box above";});}
@@ -1055,7 +1065,7 @@ window.ContrailApp={getDoc,setDoc,keyOf,parseEmails,reviewCandidates,dropNumberl
   // For "Export your data"
   exportRows:()=>real().slice().sort((a,b)=>a.date.localeCompare(b.date)).map(f=>({date:f.date,airline_code:f.airline||"",airline:AL[f.airline]||"",
     flight:f.airline&&f.num?f.airline+f.num:"",from:f.from,from_city:AP[f.from]?AP[f.from].city:"",to:f.to,to_city:AP[f.to]?AP[f.to].city:"",
-    aircraft:f.ac||"",registration:f.reg||"",distance_km:Math.round(distKm(f.from,f.to)),distance_mi:Math.round(distKm(f.from,f.to)*0.621371)})),
+    aircraft:f.ac||"",registration:f.reg||"",co2e_kg:Math.round(co2Kg(f)),distance_km:Math.round(distKm(f.from,f.to)),distance_mi:Math.round(distKm(f.from,f.to)*0.621371)})),
   exportPhotos:()=>photos.map(p=>{
     if(p.k.startsWith("ac:")){const [a,c,r]=p.k.slice(3).split("|");return {id:p.id,date:"",base:"Hangar_"+(a+(c?" "+(AL[c]||c):"")+(r?" "+r:"")).replace(/[^A-Za-z0-9-]+/g,"-"),added:p.added};}
     const f=real().find(x=>keyOf(x)===p.k);return f?{id:p.id,date:f.date,from:f.from,to:f.to,added:p.added}:null;}).filter(Boolean).sort((a,b)=>a.date.localeCompare(b.date)||a.added-b.added)};
